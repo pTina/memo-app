@@ -4,6 +4,8 @@
 
 > 이 프로젝트는 [Claude Code](https://claude.com/claude-code)로 만들었습니다.
 
+**🔗 라이브 사이트: https://ptina.github.io/memo-app/**
+
 ![메모 목록 화면](img/help/list.png)
 
 ## 주요 기능
