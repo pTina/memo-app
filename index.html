@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>메모장</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<div id="app">
+
+  <!-- S-01 메모 목록 -->
+  <section id="view-list" class="view">
+    <header class="topbar">
+      <input id="search-input" type="search" class="search-input" placeholder="🔍 메모 검색" autocomplete="off" />
+      <select id="sort-select" class="tb-select" title="정렬">
+        <option value="created">최근 생성순</option>
+        <option value="updated">최근 수정순</option>
+      </select>
+      <button type="button" id="btn-open-backup" class="btn ghost" title="백업">백업</button>
+      <button type="button" class="btn ghost btn-help" title="사용법">사용법</button>
+      <div class="theme-toggle" data-theme-toggle>
+        <button type="button" class="theme-opt" data-theme-val="light" title="라이트 모드">☀︎</button>
+        <button type="button" class="theme-opt" data-theme-val="dark" title="다크 모드">🌙</button>
+      </div>
+      <button id="btn-new-note" type="button" class="btn primary">+ 새 메모</button>
+    </header>
+
+    <div id="selectall-row" class="selectall-row hidden">
+      <button id="btn-select-all" type="button" class="cbox" aria-label="전체 선택"></button>
+      <span class="lbl">전체 선택</span>
+      <span id="select-count" class="count"></span>
+      <button id="btn-bulk-delete" type="button" class="btn danger hidden">삭제</button>
+    </div>
+
+    <div id="note-list" class="note-list"></div>
+    <p id="empty-state" class="empty-state hidden">아직 메모가 없어요. 위의 “+ 새 메모”로 시작해보세요.</p>
+  </section>
+
+  <!-- S-02 메모 편집 -->
+  <section id="view-editor" class="view hidden">
+    <header class="editor-toolbar">
+      <button id="btn-back" type="button" class="btn">← 목록</button>
+      <div class="divider"></div>
+      <label class="tb-label" for="font-select">폰트</label>
+      <select id="font-select" class="tb-select">
+        <option value="">기본 서체</option>
+      </select>
+      <button id="btn-font-manager" type="button" class="btn">+ 폰트 관리</button>
+      <div class="spacer"></div>
+      <button id="btn-export-image" type="button" class="btn">이미지로 저장</button>
+      <button id="btn-delete-note" type="button" class="btn ghost-danger">🗑 삭제</button>
+      <button type="button" class="btn ghost btn-help" title="사용법">사용법</button>
+      <div class="theme-toggle" data-theme-toggle>
+        <button type="button" class="theme-opt" data-theme-val="light" title="라이트 모드">☀︎</button>
+        <button type="button" class="theme-opt" data-theme-val="dark" title="다크 모드">🌙</button>
+      </div>
+    </header>
+    <input id="note-title" class="note-title-input" type="text" placeholder="제목 없음" autocomplete="off" />
+    <div id="note-meta" class="note-meta">
+      <span id="meta-created"></span>
+      <span class="sep">·</span>
+      <span id="meta-updated"></span>
+    </div>
+    <div id="editor-body" class="editor-body" contenteditable="true" spellcheck="false"></div>
+  </section>
+
+</div>
+
+<!-- S-03 선택 텍스트 플로팅 툴바 -->
+<div id="float-toolbar" class="float-toolbar hidden">
+  <div class="ft-group">
+    <input id="color-picker" type="color" class="ft-color" value="#1c2029" title="글자색" />
+  </div>
+  <div class="ft-sep"></div>
+  <div class="ft-group" id="highlight-group">
+    <button type="button" class="ft-swatch" data-hl="#FFE58A" style="background:#FFE58A" title="노랑"></button>
+    <button type="button" class="ft-swatch" data-hl="#B7F2C4" style="background:#B7F2C4" title="초록"></button>
+    <button type="button" class="ft-swatch" data-hl="#FFC9DE" style="background:#FFC9DE" title="분홍"></button>
+    <button type="button" class="ft-swatch" data-hl="#C7D8FF" style="background:#C7D8FF" title="파랑"></button>
+  </div>
+  <div class="ft-sep"></div>
+  <div class="ft-group">
+    <span class="ft-label">자간</span>
+    <div class="seg" data-seg="letterSpacing">
+      <button type="button" class="seg-opt" data-val="-0.5px">좁게</button>
+      <button type="button" class="seg-opt active" data-val="normal">기본</button>
+      <button type="button" class="seg-opt" data-val="2px">넓게</button>
+    </div>
+  </div>
+  <div class="ft-sep"></div>
+  <div class="ft-group">
+    <span class="ft-label">행간</span>
+    <div class="seg" data-seg="lineHeight">
+      <button type="button" class="seg-opt" data-val="1.3">좁게</button>
+      <button type="button" class="seg-opt active" data-val="1.6">기본</button>
+      <button type="button" class="seg-opt" data-val="2.0">넓게</button>
+    </div>
+  </div>
+  <div class="ft-sep"></div>
+  <div class="ft-group">
+    <button type="button" id="btn-insert-link" class="ft-link-btn" title="링크 삽입">🔗</button>
+  </div>
+</div>
+
+<!-- S-03b 링크 URL 입력 팝오버 -->
+<div id="link-popover" class="link-popover hidden">
+  <input id="link-url-input" type="url" class="link-url-input" placeholder="https://example.com" autocomplete="off" />
+  <button type="button" id="btn-link-confirm" class="ft-mini-btn">확인</button>
+</div>
+
+<!-- S-04 폰트 관리 모달 -->
+<div id="modal-font" class="modal-shade hidden">
+  <div class="modal-card">
+    <div class="modal-head"><span class="t">폰트 관리</span><button type="button" class="modal-x" data-close-modal>✕</button></div>
+    <div class="modal-body">
+      <label id="dropzone" class="dropzone" for="font-file-input">
+        폰트 파일을 드래그하거나 클릭하여 업로드<br />(.ttf · .otf · .woff · .woff2 · 용량 제한 없음)
+      </label>
+      <input id="font-file-input" type="file" accept=".ttf,.otf,.woff,.woff2" multiple hidden />
+      <div id="font-list" class="font-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- S-05 이미지로 저장 모달 -->
+<div id="modal-export" class="modal-shade hidden">
+  <div class="modal-card">
+    <div class="modal-head"><span class="t">이미지로 저장</span><button type="button" class="modal-x" data-close-modal>✕</button></div>
+    <div id="export-preview-wrap" class="export-preview-wrap">
+      <div id="export-frame" class="export-frame"><div id="export-content" class="export-content"></div></div>
+    </div>
+    <div class="export-opts">
+      <div class="opt-row" id="title-toggle-row">
+        <span class="lbl">제목 포함</span>
+        <button id="toggle-include-title" type="button" class="toggle" aria-pressed="true"></button>
+      </div>
+      <div class="opt-row">
+        <span class="lbl">배경색</span>
+        <div id="bg-swatches" class="swatch-row">
+          <button type="button" class="bg-swatch active" data-bg="#2C2440" style="background:#2C2440"></button>
+          <button type="button" class="bg-swatch" data-bg="#F7F6F3" style="background:#F7F6F3"></button>
+          <button type="button" class="bg-swatch" data-bg="#0F172A" style="background:#0F172A"></button>
+          <button type="button" class="bg-swatch" data-bg="#FFFFFF" style="background:#FFFFFF;border:1px solid var(--border-strong)"></button>
+        </div>
+      </div>
+      <div class="opt-row">
+        <span class="lbl">투명 배경</span>
+        <button id="toggle-transparent" type="button" class="toggle" aria-pressed="false"></button>
+      </div>
+      <div class="opt-row">
+        <span class="lbl">모서리 반경</span>
+        <div class="seg-light" data-seg="radius">
+          <button type="button" class="seg-opt-l" data-val="12">12</button>
+          <button type="button" class="seg-opt-l active" data-val="20">20</button>
+          <button type="button" class="seg-opt-l" data-val="32">32</button>
+        </div>
+      </div>
+      <div class="opt-row">
+        <span class="lbl">여백</span>
+        <div class="seg-light" data-seg="padding">
+          <button type="button" class="seg-opt-l" data-val="16">16</button>
+          <button type="button" class="seg-opt-l active" data-val="28">28</button>
+          <button type="button" class="seg-opt-l" data-val="40">40</button>
+        </div>
+      </div>
+      <button id="btn-download-png" type="button" class="btn primary" style="align-self:flex-end;">PNG로 다운로드</button>
+    </div>
+  </div>
+</div>
+
+<!-- S-06 삭제 확인 모달 -->
+<div id="modal-delete" class="modal-shade hidden">
+  <div class="modal-card narrow">
+    <div class="modal-body center">
+      <div class="danger-icon">🗑</div>
+      <div class="confirm-title">메모를 삭제할까요?</div>
+      <p id="delete-message" class="confirm-desc"></p>
+      <div class="confirm-actions">
+        <button type="button" class="btn" data-close-modal>취소</button>
+        <button id="btn-confirm-delete" type="button" class="btn danger">삭제</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- S-07 사용법 -->
+<div id="modal-help" class="modal-shade hidden">
+  <div class="modal-card wide">
+    <div class="modal-head"><span class="t">사용법</span><button type="button" class="modal-x" data-close-modal>✕</button></div>
+    <div class="modal-body">
+      <div class="help-list">
+        <div class="help-item">
+          <div class="help-item-head">
+            <div class="help-icon">📝</div>
+            <div>
+              <div class="help-title">메모 만들고 관리하기</div>
+              <div class="help-desc">"+ 새 메모"로 새 메모를 만드세요. 검색창으로 제목·본문을 바로 찾을 수 있고, 목록의 체크박스로 여러 메모를 선택해 한 번에 삭제할 수 있어요.</div>
+            </div>
+          </div>
+          <img class="help-shot" src="img/help/list.png" alt="메모 목록 화면 예시" />
+        </div>
+        <div class="help-item">
+          <div class="help-item-head">
+            <div class="help-icon">🖋️</div>
+            <div>
+              <div class="help-title">폰트 업로드해서 적용하기</div>
+              <div class="help-desc">편집 화면의 "+ 폰트 관리"에서 .ttf·.otf·.woff·.woff2 파일을 업로드하세요. 등록한 폰트는 브라우저에 저장되고, 메모마다 각각 다른 폰트를 지정할 수 있어요.</div>
+            </div>
+          </div>
+          <img class="help-shot" src="img/help/font.png" alt="폰트 관리 모달 예시" />
+        </div>
+        <div class="help-item">
+          <div class="help-item-head">
+            <div class="help-icon">🎨</div>
+            <div>
+              <div class="help-title">선택한 글자만 꾸미기</div>
+              <div class="help-desc">본문에서 글자를 드래그하면 뜨는 툴바로 글자색·형광펜(4색)·자간·행간을 선택 영역에만 적용할 수 있어요.</div>
+            </div>
+          </div>
+          <img class="help-shot" src="img/help/style.png" alt="선택 텍스트 스타일링 툴바 예시" />
+        </div>
+        <div class="help-item">
+          <div class="help-item-head">
+            <div class="help-icon">🔗</div>
+            <div>
+              <div class="help-title">링크 삽입하기</div>
+              <div class="help-desc">글자를 선택하고 플로팅 툴바의 🔗 버튼으로 URL을 지정하거나, 본문에 URL을 직접 입력·붙여넣으면 자동으로 링크가 돼요. 링크를 클릭하면 새 탭에서 열립니다.</div>
+            </div>
+          </div>
+          <img class="help-shot" src="img/help/link.png" alt="본문에 삽입된 링크 예시" />
+        </div>
+        <div class="help-item">
+          <div class="help-item-head">
+            <div class="help-icon">🖼️</div>
+            <div>
+              <div class="help-title">이미지로 저장하기</div>
+              <div class="help-desc">글자를 선택한 채 "이미지로 저장"을 누르면 선택 영역만, 선택 없이 누르면 메모 전체(제목 포함 여부 선택 가능)를 배경색·모서리·여백을 골라 PNG로 저장할 수 있어요.</div>
+            </div>
+          </div>
+          <img class="help-shot" src="img/help/export.png" alt="이미지로 저장 모달 예시" />
+        </div>
+        <div class="help-item">
+          <div class="help-item-head">
+            <div class="help-icon">🌙</div>
+            <div>
+              <div class="help-title">다크모드 & 생성·수정일</div>
+              <div class="help-desc">상단의 해/달 아이콘으로 언제든 테마를 바꿀 수 있어요. 편집 화면 제목 아래에서 메모의 생성일과 마지막 수정일(요일·시간 포함)을 확인할 수 있습니다.</div>
+            </div>
+          </div>
+          <img class="help-shot" src="img/help/darkmode.png" alt="다크모드에서 생성·수정일 표시 예시" />
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- S-08 데이터 백업/복원 -->
+<div id="modal-backup" class="modal-shade hidden">
+  <div class="modal-card">
+    <div class="modal-head"><span class="t">백업</span><button type="button" class="modal-x" data-close-modal>✕</button></div>
+    <div class="modal-body">
+      <div class="backup-section">
+        <div class="backup-title">내보내기</div>
+        <p class="backup-desc">모든 메모와 등록한 폰트를 파일 하나로 다운로드해요. 다른 기기나 브라우저에서 불러올 때 사용하세요.</p>
+        <button id="btn-export-backup" type="button" class="btn primary">백업 파일 다운로드</button>
+      </div>
+      <div class="backup-section">
+        <div class="backup-title">가져오기</div>
+        <p class="backup-desc">이전에 다운로드한 백업 파일을 선택하면 지금 메모 목록에 추가돼요. 같은 메모를 다시 불러오면 덮어써요.</p>
+        <label for="backup-file-input" class="btn">파일 선택</label>
+        <input id="backup-file-input" type="file" accept=".json,application/json" hidden />
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="js/db.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
