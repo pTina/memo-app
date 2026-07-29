@@ -1,3 +1,6 @@
 .claude/
 화면오류/
 .DS_Store
+chat-history*.md
+chat-history.md
+chat-history-full.md
