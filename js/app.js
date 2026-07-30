@@ -654,7 +654,7 @@ $(function () {
       sel.addRange(newRange);
       saveCurrentNoteDebounced();
     } else {
-      wrapSavedRange("background-color:" + color + ";border-radius:3px;padding:0 1px;", { "data-hl": color }, "highlight");
+      wrapSavedRange("background-color:var(--hl-" + color + ");border-radius:3px;padding:0 1px;", { "data-hl": color }, "highlight");
     }
   }
 
