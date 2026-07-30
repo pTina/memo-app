@@ -49,8 +49,9 @@
         <option value="created">최근 생성순</option>
         <option value="updated">최근 수정순</option>
       </select>
-      <button type="button" id="btn-open-backup" class="btn ghost" title="백업">백업</button>
-      <button type="button" class="btn ghost btn-help" title="사용법">사용법</button>
+      <button type="button" id="btn-open-backup" class="btn utility" title="백업">백업</button>
+      <button type="button" id="btn-open-settings" class="btn utility" title="설정">설정</button>
+      <button type="button" class="btn utility btn-help" title="사용법">사용법</button>
       <div class="theme-toggle" data-theme-toggle>
         <button type="button" class="theme-opt" data-theme-val="light" title="라이트 모드">☀︎</button>
         <button type="button" class="theme-opt" data-theme-val="dark" title="다크 모드">🌙</button>
@@ -78,11 +79,11 @@
       <select id="font-select" class="tb-select">
         <option value="">기본 서체</option>
       </select>
-      <button id="btn-font-manager" type="button" class="btn">+ 폰트 관리</button>
+      <button id="btn-font-manager" type="button" class="btn utility">+ 폰트 관리</button>
       <div class="spacer"></div>
       <button id="btn-export-image" type="button" class="btn">이미지로 저장</button>
       <button id="btn-delete-note" type="button" class="btn ghost-danger">🗑 삭제</button>
-      <button type="button" class="btn ghost btn-help" title="사용법">사용법</button>
+      <button type="button" class="btn utility btn-help" title="사용법">사용법</button>
       <div class="theme-toggle" data-theme-toggle>
         <button type="button" class="theme-opt" data-theme-val="light" title="라이트 모드">☀︎</button>
         <button type="button" class="theme-opt" data-theme-val="dark" title="다크 모드">🌙</button>
@@ -101,8 +102,10 @@
 
 <!-- S-03 선택 텍스트 플로팅 툴바 -->
 <div id="float-toolbar" class="float-toolbar hidden">
-  <div class="ft-group">
-    <input id="color-picker" type="color" class="ft-color" value="#1c2029" title="글자색" />
+  <div class="ft-group" id="color-group">
+    <button type="button" class="ft-swatch ft-swatch-none" data-color="" title="기본(색상 없음)"></button>
+    <button type="button" class="ft-swatch" data-color="#C7333D" style="background:#C7333D" title="빨강"></button>
+    <button type="button" class="ft-swatch" data-color="#3454D1" style="background:#3454D1" title="파랑"></button>
   </div>
   <div class="ft-sep"></div>
   <div class="ft-group" id="highlight-group">
@@ -110,6 +113,7 @@
     <button type="button" class="ft-swatch" data-hl="#B7F2C4" style="background:#B7F2C4" title="초록"></button>
     <button type="button" class="ft-swatch" data-hl="#FFC9DE" style="background:#FFC9DE" title="분홍"></button>
     <button type="button" class="ft-swatch" data-hl="#C7D8FF" style="background:#C7D8FF" title="파랑"></button>
+    <button type="button" class="ft-swatch ft-swatch-none" data-hl="" title="색상 없음"></button>
   </div>
   <div class="ft-sep"></div>
   <div class="ft-group">
@@ -144,7 +148,7 @@
 <!-- S-04 폰트 관리 모달 -->
 <div id="modal-font" class="modal-shade hidden">
   <div class="modal-card">
-    <div class="modal-head"><span class="t">폰트 관리</span><button type="button" class="modal-x" data-close-modal>✕</button></div>
+    <div class="modal-head"><span class="t">폰트 관리</span><button type="button" class="btn utility modal-close-desktop" data-close-modal>닫기</button></div>
     <div class="modal-body">
       <label id="dropzone" class="dropzone" for="font-file-input">
         폰트 파일을 드래그하거나 클릭하여 업로드<br />(.ttf · .otf · .woff · .woff2 · 용량 제한 없음)
@@ -152,15 +156,18 @@
       <input id="font-file-input" type="file" accept=".ttf,.otf,.woff,.woff2" multiple hidden />
       <div id="font-list" class="font-list"></div>
     </div>
+    <div class="modal-foot"><button type="button" class="btn full" data-close-modal>확인</button></div>
   </div>
 </div>
 
 <!-- S-05 이미지로 저장 모달 -->
 <div id="modal-export" class="modal-shade hidden">
   <div class="modal-card">
-    <div class="modal-head"><span class="t">이미지로 저장</span><button type="button" class="modal-x" data-close-modal>✕</button></div>
+    <div class="modal-head"><span class="t">이미지로 저장</span><button type="button" class="btn utility modal-close-desktop" data-close-modal>닫기</button></div>
     <div id="export-preview-wrap" class="export-preview-wrap">
-      <div id="export-frame" class="export-frame"><div id="export-content" class="export-content"></div></div>
+      <div id="export-capture" class="export-capture">
+        <div id="export-frame" class="export-frame"><div id="export-content" class="export-content"></div></div>
+      </div>
     </div>
     <div class="export-opts">
       <div class="opt-row" id="title-toggle-row">
@@ -198,6 +205,7 @@
       </div>
       <button id="btn-download-png" type="button" class="btn primary" style="align-self:flex-end;">PNG로 다운로드</button>
     </div>
+    <div class="modal-foot"><button type="button" class="btn full" data-close-modal>확인</button></div>
   </div>
 </div>
 
@@ -206,7 +214,7 @@
   <div class="modal-card narrow">
     <div class="modal-body center">
       <div class="danger-icon">🗑</div>
-      <div class="confirm-title">메모를 삭제할까요?</div>
+      <div id="delete-title" class="confirm-title">메모를 삭제할까요?</div>
       <p id="delete-message" class="confirm-desc"></p>
       <div class="confirm-actions">
         <button type="button" class="btn" data-close-modal>취소</button>
@@ -219,7 +227,7 @@
 <!-- S-07 사용법 -->
 <div id="modal-help" class="modal-shade hidden">
   <div class="modal-card wide">
-    <div class="modal-head"><span class="t">사용법</span><button type="button" class="modal-x" data-close-modal>✕</button></div>
+    <div class="modal-head"><span class="t">사용법</span><button type="button" class="btn utility modal-close-desktop" data-close-modal>닫기</button></div>
     <div class="modal-body">
       <div class="help-list">
         <div class="help-item">
@@ -284,13 +292,14 @@
         </div>
       </div>
     </div>
+    <div class="modal-foot"><button type="button" class="btn full" data-close-modal>확인</button></div>
   </div>
 </div>
 
 <!-- S-08 데이터 백업/복원 -->
 <div id="modal-backup" class="modal-shade hidden">
   <div class="modal-card">
-    <div class="modal-head"><span class="t">백업</span><button type="button" class="modal-x" data-close-modal>✕</button></div>
+    <div class="modal-head"><span class="t">백업</span><button type="button" class="btn utility modal-close-desktop" data-close-modal>닫기</button></div>
     <div class="modal-body">
       <div class="backup-section">
         <div class="backup-title">내보내기</div>
@@ -304,6 +313,33 @@
         <input id="backup-file-input" type="file" accept=".json,application/json" hidden />
       </div>
     </div>
+    <div class="modal-foot"><button type="button" class="btn full" data-close-modal>확인</button></div>
+  </div>
+</div>
+
+<!-- S-09 설정 -->
+<div id="modal-settings" class="modal-shade hidden">
+  <div class="modal-card">
+    <div class="modal-head"><span class="t">설정</span><button type="button" class="btn utility modal-close-desktop" data-close-modal>닫기</button></div>
+    <div class="modal-body">
+      <div class="settings-opts">
+        <div class="opt-row">
+          <span class="lbl">기본 테마</span>
+          <div class="seg-light" id="settings-theme-seg">
+            <button type="button" class="seg-opt-l" data-theme-val="system">시스템</button>
+            <button type="button" class="seg-opt-l" data-theme-val="light">라이트</button>
+            <button type="button" class="seg-opt-l" data-theme-val="dark">다크</button>
+          </div>
+        </div>
+        <div class="opt-row">
+          <span class="lbl">새 메모 기본 폰트</span>
+          <select id="settings-default-font" class="tb-select">
+            <option value="">기본 서체</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot"><button type="button" class="btn full" data-close-modal>확인</button></div>
   </div>
 </div>
 

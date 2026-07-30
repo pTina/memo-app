@@ -65,8 +65,10 @@ input{ font-family:inherit; }
 .btn:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
 .btn.primary{ background:var(--accent); border-color:var(--accent); color:#fff; }
 .btn.danger{ background:var(--danger); border-color:var(--danger); color:#fff; }
-.btn.ghost{ background:transparent; }
 .btn.ghost-danger{ background:transparent; border-color:var(--border-strong); color:var(--danger); }
+.btn.utility{ background:transparent; border-color:transparent; color:var(--ink-faint); font-weight:500; padding:7px 10px; }
+.btn.utility:hover{ background:var(--tag-bg); border-color:transparent; color:var(--ink-soft); }
+.btn.full{ width:100%; justify-content:center; }
 .btn:disabled{ opacity:.45; cursor:not-allowed; }
 
 /* ---- topbar / list ---- */
@@ -133,10 +135,11 @@ input{ font-family:inherit; }
   background:#22252F; color:#fff; padding:8px 12px; border-radius:11px; box-shadow:var(--shadow-pop);
 }
 .ft-group{ display:flex; align-items:center; gap:6px; }
-.ft-color{ width:22px; height:22px; padding:0; border:none; border-radius:50%; overflow:hidden; background:none; cursor:pointer; }
-.ft-color::-webkit-color-swatch-wrapper{ padding:0; }
-.ft-color::-webkit-color-swatch{ border:1px solid rgba(255,255,255,.4); border-radius:50%; }
 .ft-swatch{ width:17px; height:17px; border-radius:50%; border:1px solid rgba(255,255,255,.35); padding:0; }
+.ft-swatch-none{
+  background:#fff;
+  background-image:linear-gradient(to top right, transparent calc(50% - 1.2px), #E5484D calc(50% - 1.2px), #E5484D calc(50% + 1.2px), transparent calc(50% + 1.2px));
+}
 .ft-sep{ width:1px; height:16px; background:rgba(255,255,255,.18); flex:none; }
 .ft-label{ font-size:10px; color:rgba(255,255,255,.7); font-family:var(--font-mono); }
 .seg{ display:flex; background:rgba(255,255,255,.1); border-radius:7px; padding:2px; gap:1px; }
@@ -182,15 +185,23 @@ input{ font-family:inherit; }
 .backup-desc{ font-size:12.5px; color:var(--ink-soft); line-height:1.5; margin:0; }
 .modal-head{ display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border); flex:none; }
 .modal-head .t{ font-weight:700; font-size:14px; }
-.modal-x{ width:24px; height:24px; border-radius:50%; background:var(--tag-bg); border:none; display:flex; align-items:center; justify-content:center; font-size:11px; color:var(--ink-faint); }
-.modal-body{ padding:18px 20px; overflow-y:auto; }
+.modal-body{ padding:18px 20px; overflow-y:auto; flex:1; min-height:0; }
 .modal-body.center{ text-align:center; padding:28px 22px; }
+.modal-foot{ padding:14px 20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; flex:none; }
+/* Mobile keeps the full-width footer confirm button; desktop swaps it for a
+   compact close button in the header instead (more space, less reach). */
+.modal-close-desktop{ display:none; }
+@media (min-width:561px){
+  .modal-foot{ display:none; }
+  .modal-close-desktop{ display:inline-flex; }
+}
 
 .dropzone{ display:block; border:1.5px dashed var(--border-strong); border-radius:10px; padding:22px 16px; text-align:center; color:var(--ink-faint); font-size:12px; margin-bottom:16px; cursor:pointer; }
 .dropzone.dragover{ border-color:var(--accent); color:var(--accent-ink); background:var(--accent-soft); }
 .font-list{ display:flex; flex-direction:column; gap:8px; }
 .font-row{ display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border:1px solid var(--border); border-radius:9px; background:var(--surface-2); gap:10px; }
-.font-row .info{ min-width:0; }
+.font-row .info{ min-width:0; flex:1; }
+.font-row-actions{ display:flex; align-items:center; gap:8px; flex:none; }
 .font-row .preview{ font-size:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .font-row .fname{ font-size:11px; color:var(--ink-faint); font-family:var(--font-mono); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .font-empty{ text-align:center; color:var(--ink-faint); font-size:12.5px; padding:14px 0; }
@@ -200,10 +211,12 @@ input{ font-family:inherit; }
   background: repeating-conic-gradient(var(--tag-bg) 0% 25%, transparent 0% 50%) 0 0/16px 16px, var(--surface-2);
   border-bottom:1px solid var(--border); flex:1; min-height:0;
 }
+.export-capture{ display:inline-flex; padding:24px; max-width:100%; }
 .export-frame{ background:#2C2440; border-radius:20px; padding:28px; box-shadow:0 14px 30px -14px rgba(0,0,0,.4); max-width:100%; flex:none; }
 .export-content{ font-family:var(--font-display); font-size:15px; color:#F4F1FA; line-height:1.7; word-break:break-word; }
 .export-title{ font-size:20px; font-weight:700; margin-bottom:12px; }
 .export-opts{ padding:16px 20px; display:flex; flex-direction:column; gap:14px; flex:none; }
+.settings-opts{ display:flex; flex-direction:column; gap:14px; }
 .opt-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
 .lbl{ font-size:11.5px; color:var(--ink-faint); font-family:var(--font-mono); letter-spacing:.03em; text-transform:uppercase; }
 .swatch-row{ display:flex; gap:8px; }
