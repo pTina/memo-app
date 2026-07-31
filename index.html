@@ -303,7 +303,11 @@
     <div class="modal-body">
       <div class="backup-section">
         <div class="backup-title">내보내기</div>
-        <p class="backup-desc">모든 메모와 등록한 폰트를 파일 하나로 다운로드해요. 다른 기기나 브라우저에서 불러올 때 사용하세요.</p>
+        <p class="backup-desc">메모·폰트·설정을 파일 하나로 다운로드해요. 다른 기기나 브라우저에서 불러올 때 사용하세요.</p>
+        <div class="opt-row" id="backup-selected-row">
+          <span class="lbl" id="backup-selected-label">선택한 메모만 내보내기</span>
+          <button id="toggle-backup-selected" type="button" class="toggle" aria-pressed="false"></button>
+        </div>
         <button id="btn-export-backup" type="button" class="btn primary">백업 파일 다운로드</button>
       </div>
       <div class="backup-section">

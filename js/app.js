@@ -993,7 +993,19 @@ $(function () {
   $(document).on("click", ".btn-help", function () { $("#modal-help").removeClass("hidden"); });
 
   // ---------- data backup / restore (S-08) ----------
-  $("#btn-open-backup").on("click", function () { $("#modal-backup").removeClass("hidden"); });
+  var backupExportSelectedOnly = false;
+  function renderBackupModal() {
+    var count = state.selectedIds.size;
+    backupExportSelectedOnly = count > 0;
+    $("#toggle-backup-selected").prop("disabled", count === 0).attr("aria-pressed", String(backupExportSelectedOnly));
+    $("#backup-selected-label").text(count > 0 ? "선택한 메모만 내보내기 (" + count + "개)" : "선택한 메모 없음");
+  }
+  $("#btn-open-backup").on("click", function () { renderBackupModal(); $("#modal-backup").removeClass("hidden"); });
+  $("#toggle-backup-selected").on("click", function () {
+    if ($(this).prop("disabled")) return;
+    backupExportSelectedOnly = !backupExportSelectedOnly;
+    $(this).attr("aria-pressed", String(backupExportSelectedOnly));
+  });
 
   function blobToDataUrl(blob) {
     return new Promise(function (resolve, reject) {
@@ -1010,6 +1022,10 @@ $(function () {
 
   $("#btn-export-backup").on("click", function () {
     var $btn = $(this).prop("disabled", true).text("내보내는 중…");
+    var notesOut = backupExportSelectedOnly
+      ? state.notes.filter(function (n) { return state.selectedIds.has(n.id); })
+      : state.notes;
+    // Fonts are always exported in full, regardless of note selection.
     Promise.all(state.fonts.map(function (f) {
       return blobToDataUrl(f.blob).then(function (dataUrl) {
         return { id: f.id, name: f.name, family: f.family, dataUrl: dataUrl, createdAt: f.createdAt };
@@ -1019,8 +1035,12 @@ $(function () {
         app: "memo-app-backup",
         version: 1,
         exportedAt: Date.now(),
-        notes: state.notes,
-        fonts: fontsOut
+        notes: notesOut,
+        fonts: fontsOut,
+        settings: {
+          theme: localStorage.getItem("memo-theme") || "system",
+          defaultFont: localStorage.getItem("memo-default-font") || ""
+        }
       };
       var blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
       var url = URL.createObjectURL(blob);
@@ -1029,7 +1049,7 @@ $(function () {
       link.href = url;
       link.click();
       URL.revokeObjectURL(url);
-      showToast("백업 파일을 다운로드했어요.");
+      showToast(backupExportSelectedOnly ? "선택한 메모 " + notesOut.length + "개를 백업했어요." : "백업 파일을 다운로드했어요.");
     }).catch(function (err) {
       console.error(err);
       showToast("백업 파일 생성에 실패했어요.");
@@ -1083,6 +1103,12 @@ $(function () {
           var idx = state.notes.findIndex(function (x) { return x.id === n.id; });
           if (idx > -1) state.notes[idx] = n; else state.notes.push(n);
         });
+        if (payload.settings) {
+          localStorage.setItem("memo-theme", payload.settings.theme || "system");
+          if (payload.settings.defaultFont) localStorage.setItem("memo-default-font", payload.settings.defaultFont);
+          else localStorage.removeItem("memo-default-font");
+          applyTheme(payload.settings.theme || "system");
+        }
         closeModal($("#modal-backup"));
         renderNoteList();
         showToast(payload.notes.length + "개 메모를 불러왔어요.");

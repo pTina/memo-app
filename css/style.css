@@ -183,6 +183,7 @@ input{ font-family:inherit; }
 .help-shot{ width:100%; display:block; border-radius:10px; border:1px solid var(--border); box-shadow:var(--shadow-card); }
 
 .backup-section{ display:flex; flex-direction:column; align-items:flex-start; gap:10px; padding:16px 0; border-bottom:1px solid var(--border); }
+.backup-section .opt-row{ align-self:stretch; }
 .backup-section:first-child{ padding-top:0; }
 .backup-section:last-child{ border-bottom:none; padding-bottom:0; }
 .backup-title{ font-size:13.5px; font-weight:700; }
@@ -230,6 +231,7 @@ input{ font-family:inherit; }
 .toggle::after{ content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; transition:left .15s; }
 .toggle[aria-pressed="true"]{ background:var(--accent); }
 .toggle[aria-pressed="true"]::after{ left:18px; }
+.toggle:disabled{ opacity:.45; cursor:not-allowed; }
 .seg-light{ display:flex; background:var(--tag-bg); border:1px solid var(--border); border-radius:7px; padding:2px; gap:1px; }
 .seg-light .seg-opt-l{ font-size:11px; font-family:var(--font-mono); color:var(--ink-soft); padding:5px 11px; border-radius:5px; background:transparent; border:none; }
 .seg-light .seg-opt-l.active{ background:var(--accent); color:#fff; font-weight:700; }
