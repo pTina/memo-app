@@ -1,5 +1,33 @@
 # 변경 이력
 
+## 2026-08-03
+
+### 추가
+
+**메모를 열면 목록의 체크 선택이 자동으로 해제됨**
+
+| AS-IS | TO-BE |
+|---|---|
+| ![](img/changelog/checkbox-reset-before.png) | ![](img/changelog/checkbox-reset-after.png) |
+
+메모 하나를 체크한 뒤 편집하러 들어갔다가 돌아오면 체크가 그대로 남아있던 문제 → 메모를 열 때 선택 상태를 초기화.
+
+**"/" 입력으로 날짜 삽입**
+
+| AS-IS | TO-BE |
+|---|---|
+| ![](img/changelog/slash-date-before.png) | ![](img/changelog/slash-date-after.png) |
+
+에디터에서 줄/단어 시작 지점에 `/`를 입력하면 날짜 피커가 떠서 원하는 날짜를 본문에 바로 삽입 가능. PC는 커서 위치 근처 팝오버로, 모바일은 화면 하단 레이어 팝업(바텀 시트)으로 표시.
+
+**설정 팝업에서 폰트 관리**
+
+| AS-IS | TO-BE |
+|---|---|
+| ![](img/changelog/font-settings-before.png) | ![](img/changelog/font-settings-after.png) |
+
+메모를 열어야만 폰트를 업로드·삭제할 수 있던 것 → 설정 팝업에 "폰트 관리" 버튼 추가로 메모 없이도 관리 가능.
+
 ## 2026-07-31
 
 ### 버그 수정

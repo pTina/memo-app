@@ -145,6 +145,14 @@
   <button type="button" id="btn-link-confirm" class="ft-mini-btn">확인</button>
 </div>
 
+<!-- S-03c "/" 슬래시 커맨드 메뉴 (모바일에서는 하단 레이어 팝업으로 표시) -->
+<div id="slash-menu-backdrop" class="slash-menu-backdrop hidden"></div>
+<div id="slash-menu" class="slash-menu hidden">
+  <span class="slash-icon">📅</span>
+  <input type="date" id="slash-date-input" class="slash-date-input" />
+  <button type="button" id="slash-insert-date" class="ft-mini-btn">삽입</button>
+</div>
+
 <!-- S-04 폰트 관리 모달 -->
 <div id="modal-font" class="modal-shade hidden">
   <div class="modal-card">
@@ -340,6 +348,10 @@
           <select id="settings-default-font" class="tb-select">
             <option value="">기본 서체</option>
           </select>
+        </div>
+        <div class="opt-row">
+          <span class="lbl">폰트 업로드/삭제</span>
+          <button type="button" id="btn-settings-font-manager" class="btn utility">폰트 관리</button>
         </div>
       </div>
     </div>

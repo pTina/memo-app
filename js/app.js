@@ -94,6 +94,11 @@ $(function () {
     var id = $(this).val();
     if (id) localStorage.setItem("memo-default-font", id); else localStorage.removeItem("memo-default-font");
   });
+  $("#btn-settings-font-manager").on("click", function () {
+    renderFontList();
+    $("#modal-settings").addClass("hidden");
+    $("#modal-font").removeClass("hidden");
+  });
 
   // ---------- navigation ----------
   function showListView() {
@@ -216,6 +221,7 @@ $(function () {
   function openEditor(id) {
     var note = findNote(id);
     if (!note) return;
+    state.selectedIds.clear();
     state.currentNoteId = id;
     $("#note-title").val(note.title || "");
     $("#editor-body").html(note.bodyHTML || "");
@@ -340,6 +346,98 @@ $(function () {
   // more robust against extensions/IME that can intercept or reshape key events
   $("#editor-body").on("input", autoReplaceArrow);
 
+  // "/" at the start of a line/word opens a Notion-style date picker for inline insertion
+  var $slashMenu = $("#slash-menu");
+  var $slashBackdrop = $("#slash-menu-backdrop");
+  var $slashDateInput = $("#slash-date-input");
+  var slashRange = null; // Range spanning just the "/" trigger character
+  var MOBILE_QUERY = "(max-width:560px)"; // matches the breakpoint in style.css
+
+  function toDateInputValue(ts) {
+    var d = new Date(ts);
+    var y = d.getFullYear();
+    var mo = String(d.getMonth() + 1).padStart(2, "0");
+    var da = String(d.getDate()).padStart(2, "0");
+    return y + "-" + mo + "-" + da;
+  }
+
+  function formatInlineDate(dateInputValue) {
+    var parts = dateInputValue.split("-").map(Number);
+    var mo = String(parts[1]).padStart(2, "0");
+    var da = String(parts[2]).padStart(2, "0");
+    var wd = WEEKDAYS_KO[new Date(parts[0], parts[1] - 1, parts[2]).getDay()];
+    return parts[0] + "." + mo + "." + da + "(" + wd + ")";
+  }
+
+  function closeSlashMenu() {
+    $slashMenu.addClass("hidden");
+    $slashBackdrop.addClass("hidden");
+    slashRange = null;
+  }
+
+  function positionSlashMenu(range) {
+    // on mobile this is a bottom-sheet layer popup (positioned by CSS, not the caret)
+    if (window.matchMedia && window.matchMedia(MOBILE_QUERY).matches) {
+      $slashMenu.css({ top: "", left: "" });
+      return;
+    }
+    var rect = range.getBoundingClientRect();
+    var mw = $slashMenu.outerWidth();
+    var left = Math.max(8, Math.min(rect.left, window.innerWidth - mw - 8));
+    $slashMenu.css({ top: (rect.bottom + 6) + "px", left: left + "px" });
+  }
+
+  function detectSlashTrigger() {
+    var sel = window.getSelection();
+    if (!sel.rangeCount || !sel.isCollapsed) { closeSlashMenu(); return; }
+    var range = sel.getRangeAt(0);
+    var node = range.startContainer;
+    if (node.nodeType !== 3 || !editorBodyEl.contains(node)) { closeSlashMenu(); return; }
+    var offset = range.startOffset;
+    if (node.textContent[offset - 1] !== "/") { closeSlashMenu(); return; }
+    var charBefore = node.textContent[offset - 2];
+    if (charBefore && !/\s/.test(charBefore)) { closeSlashMenu(); return; } // only at start of line/word, like Notion
+    var r = document.createRange();
+    r.setStart(node, offset - 1);
+    r.setEnd(node, offset);
+    slashRange = r;
+    $slashDateInput.val(toDateInputValue(Date.now()));
+    $slashMenu.removeClass("hidden");
+    $slashBackdrop.removeClass("hidden");
+    positionSlashMenu(r);
+    $slashDateInput.trigger("focus");
+  }
+  $("#editor-body").on("input", detectSlashTrigger);
+
+  // clicking anywhere outside the menu cancels it without inserting
+  $(document).on("mousedown", function (e) {
+    if ($slashMenu.hasClass("hidden") || $(e.target).closest("#slash-menu").length) return;
+    closeSlashMenu();
+  });
+
+  function insertDateAtSlash() {
+    if (!slashRange || !$slashDateInput.val()) return;
+    pushUndoSnapshot(true);
+    var text = document.createTextNode(formatInlineDate($slashDateInput.val()));
+    slashRange.deleteContents();
+    slashRange.insertNode(text);
+    var r = document.createRange();
+    r.setStartAfter(text);
+    r.collapse(true);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(r);
+    closeSlashMenu();
+    editorBodyEl.focus();
+    saveCurrentNoteDebounced();
+  }
+  $("#slash-insert-date").on("mousedown", function (e) { e.preventDefault(); });
+  $("#slash-insert-date").on("click", insertDateAtSlash);
+  $slashDateInput.on("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); insertDateAtSlash(); }
+    else if (e.key === "Escape") { e.preventDefault(); closeSlashMenu(); editorBodyEl.focus(); }
+  });
+
   $("#btn-back").on("click", function () { saveCurrentNote(); showListView(); });
 
   $("#btn-delete-note").on("click", function () {
@@ -392,12 +490,18 @@ $(function () {
     state.fonts.slice().sort(function (a, b) { return b.createdAt - a.createdAt; }).forEach(function (font) {
       var $preview = $('<div class="preview">가나다 Abc</div>');
       var $info = $('<div class="info"></div>').append($preview, $('<div class="fname"></div>').text(font.name));
-      var applied = note && note.fontId === font.id;
-      var $btn = $('<button type="button" class="btn"></button>').toggleClass("primary", !applied).prop("disabled", applied).text(applied ? "적용됨" : "적용");
-      $btn.on("click", function () { applyFontToCurrentNote(font.id); });
       var $delBtn = $('<button type="button" class="btn ghost-danger"></button>').text("삭제");
       $delBtn.on("click", function () { openDeleteModal([font.id], "font-manager", "fonts"); });
-      var $actions = $('<div class="font-row-actions"></div>').append($btn, $delBtn);
+      var $actions = $('<div class="font-row-actions"></div>');
+      // "적용" only makes sense with a note open in the editor — the font
+      // manager can also be opened from Settings with no note in context.
+      if (note) {
+        var applied = note.fontId === font.id;
+        var $btn = $('<button type="button" class="btn"></button>').toggleClass("primary", !applied).prop("disabled", applied).text(applied ? "적용됨" : "적용");
+        $btn.on("click", function () { applyFontToCurrentNote(font.id); });
+        $actions.append($btn);
+      }
+      $actions.append($delBtn);
       $list.append($('<div class="font-row"></div>').append($info, $actions));
       loadFontFace(font).then(function (family) { $preview.css("font-family", '"' + family + '"'); }).catch(function () {});
     });
