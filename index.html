@@ -148,9 +148,15 @@
 <!-- S-03c "/" 슬래시 커맨드 메뉴 (모바일에서는 하단 레이어 팝업으로 표시) -->
 <div id="slash-menu-backdrop" class="slash-menu-backdrop hidden"></div>
 <div id="slash-menu" class="slash-menu hidden">
-  <span class="slash-icon">📅</span>
-  <input type="date" id="slash-date-input" class="slash-date-input" />
-  <button type="button" id="slash-insert-date" class="ft-mini-btn">삽입</button>
+  <div class="slash-menu-top">
+    <span class="slash-icon">📅</span>
+    <input type="date" id="slash-date-input" class="slash-date-input" />
+    <button type="button" id="slash-time-chip" class="slash-time-chip" aria-pressed="true" title="시간 포함 (클릭해서 해제)">
+      <span class="lock-icon">🔒</span>
+      <span id="slash-time-value"></span>
+    </button>
+    <button type="button" id="slash-insert-date" class="ft-mini-btn">삽입</button>
+  </div>
 </div>
 
 <!-- S-04 폰트 관리 모달 -->
@@ -352,6 +358,10 @@
         <div class="opt-row">
           <span class="lbl">폰트 업로드/삭제</span>
           <button type="button" id="btn-settings-font-manager" class="btn utility">폰트 관리</button>
+        </div>
+        <div class="opt-row">
+          <span class="lbl">날짜 삽입 시 시간 포함</span>
+          <button type="button" id="settings-slash-time-toggle" class="toggle" aria-pressed="true"></button>
         </div>
       </div>
     </div>

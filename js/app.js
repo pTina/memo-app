@@ -84,15 +84,24 @@ $(function () {
     }
     return id;
   }
+  function getSlashShowTimeDefault() {
+    return localStorage.getItem("memo-slash-show-time") !== "0"; // default on
+  }
   function renderSettingsModal() {
     var $sel = $("#settings-default-font").empty().append('<option value="">기본 서체</option>');
     state.fonts.forEach(function (f) { $sel.append($("<option></option>").val(f.id).text(f.name)); });
     $sel.val(getDefaultFontId());
+    $("#settings-slash-time-toggle").attr("aria-pressed", String(getSlashShowTimeDefault()));
   }
   $("#btn-open-settings").on("click", function () { renderSettingsModal(); $("#modal-settings").removeClass("hidden"); });
   $("#settings-default-font").on("change", function () {
     var id = $(this).val();
     if (id) localStorage.setItem("memo-default-font", id); else localStorage.removeItem("memo-default-font");
+  });
+  $("#settings-slash-time-toggle").on("click", function () {
+    var next = $(this).attr("aria-pressed") !== "true";
+    localStorage.setItem("memo-slash-show-time", next ? "1" : "0");
+    $(this).attr("aria-pressed", String(next));
   });
   $("#btn-settings-font-manager").on("click", function () {
     renderFontList();
@@ -350,7 +359,10 @@ $(function () {
   var $slashMenu = $("#slash-menu");
   var $slashBackdrop = $("#slash-menu-backdrop");
   var $slashDateInput = $("#slash-date-input");
+  var $slashTimeValue = $("#slash-time-value");
+  var $slashTimeChip = $("#slash-time-chip");
   var slashRange = null; // Range spanning just the "/" trigger character
+  var slashShowTime = getSlashShowTimeDefault();
   var MOBILE_QUERY = "(max-width:560px)"; // matches the breakpoint in style.css
 
   function toDateInputValue(ts) {
@@ -361,12 +373,32 @@ $(function () {
     return y + "-" + mo + "-" + da;
   }
 
-  function formatInlineDate(dateInputValue) {
+  function toTimeInputValue(ts) {
+    var d = new Date(ts);
+    var h = String(d.getHours()).padStart(2, "0");
+    var mi = String(d.getMinutes()).padStart(2, "0");
+    return h + ":" + mi;
+  }
+
+  function formatInlineDate(dateInputValue, timeInputValue) {
     var parts = dateInputValue.split("-").map(Number);
     var mo = String(parts[1]).padStart(2, "0");
     var da = String(parts[2]).padStart(2, "0");
     var wd = WEEKDAYS_KO[new Date(parts[0], parts[1] - 1, parts[2]).getDay()];
-    return parts[0] + "." + mo + "." + da + "(" + wd + ")";
+    var result = parts[0] + "/" + mo + "/" + da + "(" + wd + ")";
+    if (timeInputValue) result += " " + timeInputValue;
+    return result;
+  }
+
+  function currentSlashPreviewText() {
+    if (!$slashDateInput.val()) return "";
+    return formatInlineDate($slashDateInput.val(), slashShowTime ? toTimeInputValue(Date.now()) : "");
+  }
+
+  function updateSlashTimeToggleUI() {
+    $slashTimeChip.attr("aria-pressed", String(slashShowTime));
+    $slashTimeChip.find(".lock-icon").text(slashShowTime ? "🔒" : "🔓");
+    $slashTimeChip.attr("title", slashShowTime ? "시간 포함 (클릭해서 해제)" : "시간 미포함 (클릭해서 포함)");
   }
 
   function closeSlashMenu() {
@@ -401,7 +433,10 @@ $(function () {
     r.setStart(node, offset - 1);
     r.setEnd(node, offset);
     slashRange = r;
+    slashShowTime = getSlashShowTimeDefault(); // pick up any change made in settings since the menu last opened
     $slashDateInput.val(toDateInputValue(Date.now()));
+    $slashTimeValue.text(toTimeInputValue(Date.now()));
+    updateSlashTimeToggleUI();
     $slashMenu.removeClass("hidden");
     $slashBackdrop.removeClass("hidden");
     positionSlashMenu(r);
@@ -418,7 +453,7 @@ $(function () {
   function insertDateAtSlash() {
     if (!slashRange || !$slashDateInput.val()) return;
     pushUndoSnapshot(true);
-    var text = document.createTextNode(formatInlineDate($slashDateInput.val()));
+    var text = document.createTextNode(currentSlashPreviewText());
     slashRange.deleteContents();
     slashRange.insertNode(text);
     var r = document.createRange();
@@ -436,6 +471,12 @@ $(function () {
   $slashDateInput.on("keydown", function (e) {
     if (e.key === "Enter") { e.preventDefault(); insertDateAtSlash(); }
     else if (e.key === "Escape") { e.preventDefault(); closeSlashMenu(); editorBodyEl.focus(); }
+  });
+  $slashTimeChip.on("mousedown", function (e) { e.preventDefault(); });
+  $slashTimeChip.on("click", function () {
+    slashShowTime = !slashShowTime;
+    localStorage.setItem("memo-slash-show-time", slashShowTime ? "1" : "0");
+    updateSlashTimeToggleUI();
   });
 
   $("#btn-back").on("click", function () { saveCurrentNote(); showListView(); });
@@ -1143,7 +1184,8 @@ $(function () {
         fonts: fontsOut,
         settings: {
           theme: localStorage.getItem("memo-theme") || "system",
-          defaultFont: localStorage.getItem("memo-default-font") || ""
+          defaultFont: localStorage.getItem("memo-default-font") || "",
+          slashShowTime: getSlashShowTimeDefault()
         }
       };
       var blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
@@ -1211,6 +1253,9 @@ $(function () {
           localStorage.setItem("memo-theme", payload.settings.theme || "system");
           if (payload.settings.defaultFont) localStorage.setItem("memo-default-font", payload.settings.defaultFont);
           else localStorage.removeItem("memo-default-font");
+          // missing key (older backups) falls back to the app default (on)
+          localStorage.setItem("memo-slash-show-time", payload.settings.slashShowTime === false ? "0" : "1");
+          slashShowTime = getSlashShowTimeDefault();
           applyTheme(payload.settings.theme || "system");
         }
         closeModal($("#modal-backup"));
