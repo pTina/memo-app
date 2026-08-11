@@ -50,6 +50,33 @@ $(function () {
     };
   }
   function closeModal($modal) { $modal.addClass("hidden"); }
+  var pendingInfoConfirm = null;
+  var pendingInfoRename = null;
+  function showInfoModal(title, message, onConfirm, onRename, badges) {
+    pendingInfoConfirm = onConfirm || null;
+    pendingInfoRename = onRename || null;
+    $("#info-title").text(title || "알림");
+    $("#info-message").text(message || "");
+    $("#btn-info-rename").toggleClass("hidden", !onRename);
+    var $badges = $("#info-badges").empty();
+    if (badges && badges.length) {
+      badges.forEach(function (b) { $badges.append($("<span></span>").addClass(b.cls).text(b.text)); });
+    }
+    $badges.toggleClass("hidden", !badges || !badges.length);
+    $("#modal-info").removeClass("hidden");
+  }
+  $("#btn-confirm-info").on("click", function () {
+    var cb = pendingInfoConfirm;
+    pendingInfoConfirm = null;
+    pendingInfoRename = null;
+    if (cb) cb();
+  });
+  $("#btn-info-rename").on("click", function () {
+    var cb = pendingInfoRename;
+    pendingInfoConfirm = null;
+    pendingInfoRename = null;
+    if (cb) cb();
+  });
 
   // ---------- theme ----------
   function applyTheme(theme) {
@@ -1165,8 +1192,8 @@ $(function () {
     return fetch(dataUrl).then(function (res) { return res.blob(); });
   }
 
-  $("#btn-export-backup").on("click", function () {
-    var $btn = $(this).prop("disabled", true).text("내보내는 중…");
+  function runBackupExport(filename) {
+    var $btn = $("#btn-export-backup").prop("disabled", true).text("내보내는 중…");
     var notesOut = backupExportSelectedOnly
       ? state.notes.filter(function (n) { return state.selectedIds.has(n.id); })
       : state.notes;
@@ -1191,7 +1218,7 @@ $(function () {
       var blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
       var url = URL.createObjectURL(blob);
       var link = document.createElement("a");
-      link.download = "memo-backup-" + Date.now() + ".json";
+      link.download = filename;
       link.href = url;
       link.click();
       URL.revokeObjectURL(url);
@@ -1202,6 +1229,25 @@ $(function () {
     }).then(function () {
       $btn.prop("disabled", false).text("백업 파일 다운로드");
     });
+  }
+
+  $("#btn-export-backup").on("click", function () {
+    var customName = $("#backup-filename-input").val().trim().replace(/[\\/:*?"<>|]/g, "");
+    var filename = (customName || "memo-backup-" + Date.now()) + ".json";
+    var title = backupExportSelectedOnly ? "선택된 메모가 다운로드 됩니다." : "메모 전체가 다운로드됩니다.";
+    var badges = [];
+    if (backupExportSelectedOnly) {
+      var selectedCount = state.selectedIds.size;
+      badges.push({ cls: "badge-recent", text: selectedCount + "개 선택" });
+      if (selectedCount > 0 && selectedCount === state.notes.length) {
+        badges.push({ cls: "badge-neutral", text: "전체 선택됨" });
+      }
+    } else {
+      badges.push({ cls: "badge-neutral", text: "메모 " + state.notes.length + "개(전체)" });
+    }
+    showInfoModal(title, filename, function () { runBackupExport(filename); }, function () {
+      $("#backup-filename-input").trigger("focus");
+    }, badges);
   });
 
   $("#backup-file-input").on("change", function () {

@@ -310,6 +310,22 @@
   </div>
 </div>
 
+<!-- 정보 안내 모달 -->
+<div id="modal-info" class="modal-shade hidden">
+  <div class="modal-card narrow">
+    <div class="modal-body center">
+      <div class="info-icon">ℹ️</div>
+      <div id="info-title" class="confirm-title">알림</div>
+      <div id="info-badges" class="info-badges hidden"></div>
+      <p id="info-message" class="confirm-desc"></p>
+      <div class="confirm-actions">
+        <button id="btn-info-rename" type="button" class="btn hidden" data-close-modal>이름 바꾸기</button>
+        <button id="btn-confirm-info" type="button" class="btn primary" data-close-modal>확인</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- S-08 데이터 백업/복원 -->
 <div id="modal-backup" class="modal-shade hidden">
   <div class="modal-card">
@@ -321,6 +337,10 @@
         <div class="opt-row" id="backup-selected-row">
           <span class="lbl" id="backup-selected-label">선택한 메모만 내보내기</span>
           <button id="toggle-backup-selected" type="button" class="toggle" aria-pressed="false"></button>
+        </div>
+        <div class="opt-row">
+          <span class="lbl">파일 이름</span>
+          <input id="backup-filename-input" class="backup-filename-input" type="text" placeholder="memo-backup" autocomplete="off" />
         </div>
         <button id="btn-export-backup" type="button" class="btn primary">백업 파일 다운로드</button>
       </div>
