@@ -8,6 +8,7 @@ $(function () {
     lastOpenedId: null,
     sortMode: localStorage.getItem("memo-sort") || "created",
     selectedIds: new Set(),
+    openSwipeId: null,
     loadedFontFamilies: new Map(),
     savedRange: null,
     pendingDelete: null,
@@ -195,7 +196,14 @@ $(function () {
       );
       var $body = $('<div class="body"></div>').append($info, $('<div class="d"></div>').text(formatDate(note.updatedAt)));
       $card.append($cbox, $body);
-      $list.append($card);
+      var $row = $('<div class="note-swipe"></div>').attr("data-id", note.id);
+      var $del = $('<button type="button" class="note-swipe-delete">삭제</button>');
+      $row.append($del, $card);
+      if (state.openSwipeId === note.id) {
+        $row.addClass("open");
+        $card.css("transform", "translateX(-88px)");
+      }
+      $list.append($row);
     });
 
     updateSelectionUI();
@@ -217,14 +225,113 @@ $(function () {
 
   $(document).on("click", ".note-card .cbox", function (e) {
     e.stopPropagation();
-    var id = $(this).closest(".note-card").data("id");
+    if (swipe.suppressClick) { swipe.suppressClick = false; return; }
+    var $card = $(this).closest(".note-card");
+    var id = $card.data("id");
     if (state.selectedIds.has(id)) state.selectedIds.delete(id); else state.selectedIds.add(id);
-    renderNoteList();
+    var on = state.selectedIds.has(id);
+    $card.toggleClass("checked", on);
+    $(this).toggleClass("on", on).text(on ? "✓" : "");
+    updateSelectionUI();
   });
 
   $(document).on("click", ".note-card .body", function () {
-    openEditor($(this).closest(".note-card").data("id"));
+    var $row = $(this).closest(".note-swipe");
+    if (swipe.suppressClick || $row.hasClass("open")) {
+      swipe.suppressClick = false;
+      closeOpenSwipes();
+      return;
+    }
+    openEditor($row.data("id"));
   });
+
+  $(document).on("click", ".note-swipe-delete", function (e) {
+    e.stopPropagation();
+    var id = $(this).closest(".note-swipe").data("id");
+    if (id) openDeleteModal([id], "list");
+  });
+
+  // swipe-to-reveal delete on list cards (pointer = touch + mouse)
+  var SWIPE_ACTION_W = 88;
+  var SWIPE_OPEN_PX = 40;
+  var SWIPE_AXIS_PX = 8;
+  var swipe = { pointerId: null, startX: 0, startY: 0, originTx: 0, axis: "", $row: null, suppressClick: false };
+
+  function cardTx($row) {
+    var el = $row.children(".note-card")[0];
+    if (!el) return 0;
+    var m = (el.style.transform || "").match(/translateX\((-?\d+(?:\.\d+)?)px\)/);
+    if (m) return parseFloat(m[1]);
+    return $row.hasClass("open") ? -SWIPE_ACTION_W : 0;
+  }
+  function setCardTx($row, tx, animate) {
+    if (!$row || !$row.length) return;
+    if (tx < -SWIPE_ACTION_W) tx = -SWIPE_ACTION_W + (tx + SWIPE_ACTION_W) * 0.18;
+    else if (tx > 0) tx = tx * 0.18;
+    $row.toggleClass("dragging", !animate);
+    $row.children(".note-card").css("transform", "translateX(" + tx + "px)");
+    $row.toggleClass("open", tx <= -SWIPE_ACTION_W + 0.5);
+  }
+  function snapSwipe($row, open) {
+    if (!$row || !$row.length) return;
+    $row.removeClass("dragging");
+    var tx = open ? -SWIPE_ACTION_W : 0;
+    $row.children(".note-card").css("transform", "translateX(" + tx + "px)");
+    $row.toggleClass("open", open);
+    var id = $row.data("id");
+    if (open) state.openSwipeId = id;
+    else if (state.openSwipeId === id) state.openSwipeId = null;
+  }
+  function closeOpenSwipes(except) {
+    $(".note-swipe.open, .note-swipe.dragging").each(function () {
+      if (except && this === except) return;
+      snapSwipe($(this), false);
+    });
+  }
+
+  document.addEventListener("pointerdown", function (e) {
+    var $row = $(e.target).closest(".note-swipe");
+    if (!$row.length) { closeOpenSwipes(); return; }
+    if ($(e.target).closest(".note-swipe-delete").length) return;
+    if (swipe.pointerId !== null) return;
+    closeOpenSwipes($row[0]);
+    swipe.pointerId = e.pointerId;
+    swipe.startX = e.clientX;
+    swipe.startY = e.clientY;
+    swipe.originTx = cardTx($row);
+    swipe.axis = "";
+    swipe.$row = $row;
+    swipe.suppressClick = false;
+  });
+  document.addEventListener("pointermove", function (e) {
+    if (swipe.pointerId !== e.pointerId || !swipe.$row) return;
+    var dx = e.clientX - swipe.startX;
+    var dy = e.clientY - swipe.startY;
+    if (!swipe.axis) {
+      if (Math.abs(dx) < SWIPE_AXIS_PX && Math.abs(dy) < SWIPE_AXIS_PX) return;
+      swipe.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+      if (swipe.axis === "y") { swipe.pointerId = null; swipe.$row = null; return; }
+      swipe.$row.addClass("dragging");
+      try { swipe.$row[0].setPointerCapture(e.pointerId); } catch (err) {}
+    }
+    if (swipe.axis !== "x") return;
+    e.preventDefault();
+    swipe.suppressClick = true;
+    setCardTx(swipe.$row, swipe.originTx + dx, false);
+  }, { passive: false });
+  function endSwipe(e) {
+    if (swipe.pointerId !== e.pointerId || !swipe.$row) return;
+    var $row = swipe.$row;
+    var axis = swipe.axis;
+    var tx = cardTx($row);
+    swipe.pointerId = null;
+    swipe.$row = null;
+    swipe.axis = "";
+    if (axis === "x") snapSwipe($row, tx <= -SWIPE_OPEN_PX);
+    else $row.removeClass("dragging");
+  }
+  document.addEventListener("pointerup", endSwipe);
+  document.addEventListener("pointercancel", endSwipe);
 
   $("#btn-select-all").on("click", function () {
     var visibleIds = getFilteredNotes().map(function (n) { return n.id; });
