@@ -284,8 +284,86 @@ $(function () {
     clearTimeout(undoBurstTimer);
     undoBurstTimer = null;
   }
+  function indexPathFromNode(root, node) {
+    var path = [];
+    while (node && node !== root) {
+      var i = 0;
+      var sib = node.previousSibling;
+      while (sib) { i++; sib = sib.previousSibling; }
+      path.unshift(i);
+      node = node.parentNode;
+    }
+    return node === root ? path : null;
+  }
+  function nodeFromIndexPath(root, path) {
+    var n = root;
+    var i;
+    for (i = 0; i < path.length; i++) {
+      if (!n.childNodes || path[i] >= n.childNodes.length) return null;
+      n = n.childNodes[path[i]];
+    }
+    return n;
+  }
+  function clampOffset(node, offset) {
+    var max = node.nodeType === 3 ? node.length : node.childNodes.length;
+    if (offset < 0) return 0;
+    return offset > max ? max : offset;
+  }
+  function captureEditorSelection() {
+    var titleEl = document.getElementById("note-title");
+    if (document.activeElement === titleEl) {
+      return { field: "title", start: titleEl.selectionStart, end: titleEl.selectionEnd };
+    }
+    var sel = window.getSelection();
+    if (!sel.rangeCount) return { field: "body" };
+    var range = sel.getRangeAt(0);
+    if (!editorBodyEl.contains(range.startContainer) && range.startContainer !== editorBodyEl) {
+      return { field: "body" };
+    }
+    var startPath = indexPathFromNode(editorBodyEl, range.startContainer);
+    var endPath = indexPathFromNode(editorBodyEl, range.endContainer);
+    if (!startPath || !endPath) return { field: "body" };
+    return {
+      field: "body",
+      start: { path: startPath, offset: range.startOffset },
+      end: { path: endPath, offset: range.endOffset }
+    };
+  }
+  function restoreEditorSelection(selInfo) {
+    if (selInfo && selInfo.field === "title") {
+      var titleEl = document.getElementById("note-title");
+      titleEl.focus();
+      if (typeof selInfo.start === "number") {
+        var len = titleEl.value.length;
+        var a = Math.min(selInfo.start, len);
+        var b = Math.min(selInfo.end != null ? selInfo.end : selInfo.start, len);
+        titleEl.setSelectionRange(a, b);
+      }
+      return;
+    }
+    editorBodyEl.focus();
+    var range = document.createRange();
+    var startNode = selInfo && selInfo.start ? nodeFromIndexPath(editorBodyEl, selInfo.start.path) : null;
+    var endNode = selInfo && selInfo.end ? nodeFromIndexPath(editorBodyEl, selInfo.end.path) : null;
+    if (startNode && endNode) {
+      range.setStart(startNode, clampOffset(startNode, selInfo.start.offset));
+      range.setEnd(endNode, clampOffset(endNode, selInfo.end.offset));
+    } else {
+      range.selectNodeContents(editorBodyEl);
+      range.collapse(false);
+    }
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
   function captureSnapshot() {
-    return { title: $("#note-title").val(), bodyHTML: editorBodyEl.innerHTML };
+    return {
+      title: $("#note-title").val(),
+      bodyHTML: editorBodyEl.innerHTML,
+      sel: captureEditorSelection(),
+      scrollX: window.scrollX,
+      scrollY: window.scrollY
+    };
   }
   // forceNewGroup: true for discrete toolbar actions (always their own undo
   // step); false for typing, which groups consecutive keystrokes into one
@@ -311,6 +389,8 @@ $(function () {
     note.updatedAt = Date.now();
     DB.notes.put(note);
     renderNoteMeta(note);
+    restoreEditorSelection(snap.sel);
+    if (typeof snap.scrollY === "number") window.scrollTo(snap.scrollX || 0, snap.scrollY);
   }
   function performUndo() {
     if (!state.undoStack.length) return;
@@ -886,6 +966,70 @@ $(function () {
     sel.addRange(r);
   }
 
+  function fetchPageTitle(url) {
+    if (!/^https?:\/\//i.test(url || "")) return $.Deferred().reject().promise();
+    return $.ajax({
+      url: "https://api.microlink.io/",
+      data: { url: url, filter: "title" },
+      dataType: "json",
+      timeout: 8000
+    }).then(function (res) {
+      var title = res && res.data && res.data.title ? String(res.data.title).trim() : "";
+      if (!title) return $.Deferred().reject().promise();
+      return title;
+    });
+  }
+
+  function isLinkAtLineStart(a) {
+    var prev = a.previousSibling;
+    while (prev) {
+      if (prev.nodeType === 3) {
+        if (prev.textContent.replace(/\u00A0/g, " ").trim()) return false;
+        prev = prev.previousSibling;
+        continue;
+      }
+      if (prev.nodeName === "BR") return true;
+      return false;
+    }
+    return true;
+  }
+
+  function insertTitleAboveLink(a, title) {
+    if (!a || !a.parentNode || !editorBodyEl.contains(a)) return;
+    title = (title || "").trim();
+    if (!title) return;
+    if ((a.textContent || "").trim() === title) return;
+    var href = a.getAttribute("href") || "";
+    if (title === href) return;
+
+    var prev = a.previousSibling;
+    if (prev && prev.nodeName === "BR") prev = prev.previousSibling;
+    if (prev && prev.nodeType === 3 && prev.textContent.replace(/\u00A0/g, " ").trim() === title) return;
+
+    var sel = window.getSelection();
+    var saved = sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null;
+
+    if (!isLinkAtLineStart(a)) a.parentNode.insertBefore(document.createElement("br"), a);
+    a.parentNode.insertBefore(document.createTextNode(title), a);
+    a.parentNode.insertBefore(document.createElement("br"), a);
+
+    if (saved && editorBodyEl.contains(saved.commonAncestorContainer)) {
+      sel.removeAllRanges();
+      sel.addRange(saved);
+    }
+  }
+
+  function enrichLinkWithTitle(a) {
+    if (!a) return;
+    var noteId = state.currentNoteId;
+    fetchPageTitle(a.getAttribute("href")).done(function (title) {
+      if (state.currentNoteId !== noteId) return;
+      if (!editorBodyEl.contains(a)) return;
+      insertTitleAboveLink(a, title);
+      saveCurrentNoteDebounced();
+    }).fail(function () { /* keep the link as-is */ });
+  }
+
   function insertLink(url) {
     if (!state.savedRange || !url) return null;
     pushUndoSnapshot(true);
@@ -900,6 +1044,7 @@ $(function () {
     sel.removeAllRanges();
     sel.addRange(newRange);
     saveCurrentNoteDebounced();
+    enrichLinkWithTitle(a);
     return a;
   }
 
@@ -970,6 +1115,7 @@ $(function () {
     linkRange.insertNode(a);
     placeCaretAfterLink(a);
     saveCurrentNoteDebounced();
+    enrichLinkWithTitle(a);
   }
   $("#editor-body").on("keyup", function (e) {
     if (e.key === " " || e.key === "Enter") autolinkAtCaret();
@@ -995,6 +1141,7 @@ $(function () {
     range.insertNode(a);
     placeCaretAfterLink(a);
     saveCurrentNoteDebounced();
+    enrichLinkWithTitle(a);
   });
 
   // clicking a link opens it in a new tab instead of placing the caret
