@@ -1101,40 +1101,108 @@ $(function () {
     return true;
   }
 
-  function insertTitleAboveLink(a, title) {
-    if (!a || !a.parentNode || !editorBodyEl.contains(a)) return;
-    title = (title || "").trim();
-    if (!title) return;
-    if ((a.textContent || "").trim() === title) return;
-    var href = a.getAttribute("href") || "";
-    if (title === href) return;
-
-    var prev = a.previousSibling;
-    if (prev && prev.nodeName === "BR") prev = prev.previousSibling;
-    if (prev && prev.nodeType === 3 && prev.textContent.replace(/\u00A0/g, " ").trim() === title) return;
-
+  function withSavedCaret(fn) {
     var sel = window.getSelection();
     var saved = sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null;
-
-    if (!isLinkAtLineStart(a)) a.parentNode.insertBefore(document.createElement("br"), a);
-    a.parentNode.insertBefore(document.createTextNode(title), a);
-    a.parentNode.insertBefore(document.createElement("br"), a);
-
+    fn();
     if (saved && editorBodyEl.contains(saved.commonAncestorContainer)) {
       sel.removeAllRanges();
       sel.addRange(saved);
     }
   }
 
+  function findLinkTitleLoading(a) {
+    var n = a && a.previousSibling;
+    if (n && n.nodeName === "BR") n = n.previousSibling;
+    if (n && n.nodeType === 1 && n.classList.contains("link-title-loading")) return n;
+    return null;
+  }
+
+  function makeLoadingBr() {
+    var br = document.createElement("br");
+    br.className = "link-title-loading-br";
+    return br;
+  }
+
+  function showLinkTitleLoading(a) {
+    if (!a || !a.parentNode || !editorBodyEl.contains(a) || findLinkTitleLoading(a)) return;
+    var span = document.createElement("span");
+    span.className = "link-title-loading";
+    span.setAttribute("contenteditable", "false");
+    span.textContent = "제목 불러오는 중…";
+    withSavedCaret(function () {
+      if (!isLinkAtLineStart(a)) a.parentNode.insertBefore(makeLoadingBr(), a);
+      a.parentNode.insertBefore(span, a);
+      a.parentNode.insertBefore(makeLoadingBr(), a);
+    });
+  }
+
+  function removeLinkTitleLoading(a) {
+    var span = findLinkTitleLoading(a);
+    if (!span || !span.parentNode) return;
+    withSavedCaret(function () {
+      var parent = span.parentNode;
+      var next = span.nextSibling;
+      var prev = span.previousSibling;
+      parent.removeChild(span);
+      if (next && next.nodeName === "BR" && next.classList.contains("link-title-loading-br")) parent.removeChild(next);
+      if (prev && prev.nodeName === "BR" && prev.classList.contains("link-title-loading-br")) parent.removeChild(prev);
+    });
+  }
+
+  function insertTitleAboveLink(a, title) {
+    if (!a || !a.parentNode || !editorBodyEl.contains(a)) return;
+    title = (title || "").trim();
+    if (!title || (a.textContent || "").trim() === title || title === (a.getAttribute("href") || "")) {
+      removeLinkTitleLoading(a);
+      return;
+    }
+    var prev = a.previousSibling;
+    if (prev && prev.nodeName === "BR") prev = prev.previousSibling;
+    if (prev && prev.nodeType === 3 && prev.textContent.replace(/\u00A0/g, " ").trim() === title) {
+      removeLinkTitleLoading(a);
+      return;
+    }
+
+    var loading = findLinkTitleLoading(a);
+    if (loading) {
+      withSavedCaret(function () {
+        var node = document.createTextNode(title);
+        loading.parentNode.replaceChild(node, loading);
+        [node.nextSibling, node.previousSibling].forEach(function (el) {
+          if (el && el.nodeName === "BR") {
+            el.classList.remove("link-title-loading-br");
+            if (!el.className) el.removeAttribute("class");
+          }
+        });
+      });
+      return;
+    }
+
+    withSavedCaret(function () {
+      if (!isLinkAtLineStart(a)) a.parentNode.insertBefore(document.createElement("br"), a);
+      a.parentNode.insertBefore(document.createTextNode(title), a);
+      a.parentNode.insertBefore(document.createElement("br"), a);
+    });
+  }
+
   function enrichLinkWithTitle(a) {
     if (!a) return;
+    var href = a.getAttribute("href");
+    if (!/^https?:\/\//i.test(href || "")) return;
     var noteId = state.currentNoteId;
-    fetchPageTitle(a.getAttribute("href")).done(function (title) {
+    showLinkTitleLoading(a);
+    fetchPageTitle(href).done(function (title) {
       if (state.currentNoteId !== noteId) return;
       if (!editorBodyEl.contains(a)) return;
       insertTitleAboveLink(a, title);
       saveCurrentNoteDebounced();
-    }).fail(function () { /* keep the link as-is */ });
+    }).fail(function () {
+      if (state.currentNoteId !== noteId) return;
+      if (!editorBodyEl.contains(a)) return;
+      removeLinkTitleLoading(a);
+      saveCurrentNoteDebounced();
+    });
   }
 
   function insertLink(url) {

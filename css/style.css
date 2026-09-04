@@ -140,6 +140,10 @@ input{ font-family:inherit; }
 .editor-body a{ color:var(--accent); text-decoration:underline; text-underline-offset:2px; cursor:pointer; }
 .editor-body a:hover{ color:var(--accent-ink); }
 
+/* link OG title loading */
+.editor-body .link-title-loading{ color:var(--ink-faint); pointer-events:none; animation:link-title-pulse 1s ease-in-out infinite; }
+@keyframes link-title-pulse{ 50%{ opacity:.4; } }
+
 /* ---- floating selection toolbar ---- */
 .float-toolbar{
   position:fixed; top:0; left:0; z-index:60; display:flex; align-items:center; gap:10px; flex-wrap:wrap; max-width:min(92vw,520px);
