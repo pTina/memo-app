@@ -512,13 +512,6 @@ $(function () {
     restoreSnapshot(state.redoStack.pop());
   }
   $("#note-title, #editor-body").on("beforeinput", function () { pushUndoSnapshot(false); });
-  $("#editor-body").on("beforeinput", function (e) {
-    if (!caretInLinkTitleLoading()) return;
-    e.preventDefault();
-    escapeLinkTitleLoadingCaret();
-    var ev = e.originalEvent || e;
-    if (ev.data) document.execCommand("insertText", false, ev.data);
-  });
   $(document).on("keydown", function (e) {
     if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "z") return;
     if ($("#view-editor").hasClass("hidden")) return;
@@ -863,10 +856,13 @@ $(function () {
   // Skip it while focus is inside the toolbar/link popover themselves (color picker,
   // link URL input) — moving focus there collapses the document selection, and
   // re-running updateFloatToolbar would immediately hide the very control in use.
+  var imeComposing = false;
+  $("#editor-body").on("compositionstart", function () { imeComposing = true; });
+  $("#editor-body").on("compositionend", function () { imeComposing = false; });
   document.addEventListener("selectionchange", function () {
     var active = document.activeElement;
     if (active && $(active).closest("#float-toolbar, #link-popover").length) return;
-    if (caretInLinkTitleLoading()) escapeLinkTitleLoadingCaret();
+    if (!imeComposing && caretInLinkTitleLoading()) escapeLinkTitleLoadingCaret();
     setTimeout(updateFloatToolbar, 0);
   });
   $(document).on("mousedown", function (e) {
@@ -1171,7 +1167,6 @@ $(function () {
     if (!a || !a.parentNode || !editorBodyEl.contains(a) || findLinkTitleLoading(a)) return;
     var span = document.createElement("span");
     span.className = "link-title-loading";
-    span.setAttribute("contenteditable", "false");
     span.textContent = "제목 불러오는 중…";
     var fetchId = a.getAttribute("data-title-fetch");
     if (fetchId) span.setAttribute("data-title-fetch", fetchId);
