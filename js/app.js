@@ -512,6 +512,13 @@ $(function () {
     restoreSnapshot(state.redoStack.pop());
   }
   $("#note-title, #editor-body").on("beforeinput", function () { pushUndoSnapshot(false); });
+  $("#editor-body").on("beforeinput", function (e) {
+    if (!caretInLinkTitleLoading()) return;
+    e.preventDefault();
+    escapeLinkTitleLoadingCaret();
+    var ev = e.originalEvent || e;
+    if (ev.data) document.execCommand("insertText", false, ev.data);
+  });
   $(document).on("keydown", function (e) {
     if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "z") return;
     if ($("#view-editor").hasClass("hidden")) return;
@@ -859,6 +866,7 @@ $(function () {
   document.addEventListener("selectionchange", function () {
     var active = document.activeElement;
     if (active && $(active).closest("#float-toolbar, #link-popover").length) return;
+    if (caretInLinkTitleLoading()) escapeLinkTitleLoadingCaret();
     setTimeout(updateFloatToolbar, 0);
   });
   $(document).on("mousedown", function (e) {
@@ -1079,7 +1087,7 @@ $(function () {
       url: "https://api.microlink.io/",
       data: { url: url, filter: "title" },
       dataType: "json",
-      timeout: 8000
+      timeout: 20000
     }).then(function (res) {
       var title = res && res.data && res.data.title ? String(res.data.title).trim() : "";
       if (!title) return $.Deferred().reject().promise();
@@ -1104,10 +1112,43 @@ $(function () {
   function withSavedCaret(fn) {
     var sel = window.getSelection();
     var saved = sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null;
+    var aNear = editorBodyEl.querySelector("a[data-title-fetch]");
     fn();
     if (saved && editorBodyEl.contains(saved.commonAncestorContainer)) {
+      var n = saved.startContainer;
+      var el = n.nodeType === 1 ? n : n.parentElement;
+      if (!(el && el.closest && el.closest(".link-title-loading"))) {
+        sel.removeAllRanges();
+        sel.addRange(saved);
+        return;
+      }
+    }
+    if (aNear && editorBodyEl.contains(aNear)) placeCaretAfterLink(aNear);
+  }
+
+  function caretInLinkTitleLoading() {
+    var sel = window.getSelection();
+    if (!sel.rangeCount) return false;
+    var n = sel.anchorNode;
+    if (!n) return false;
+    var el = n.nodeType === 1 ? n : n.parentElement;
+    return !!(el && el.closest && el.closest(".link-title-loading"));
+  }
+
+  function escapeLinkTitleLoadingCaret() {
+    var loading = editorBodyEl.querySelector(".link-title-loading");
+    if (!loading) return;
+    var n = loading.nextSibling;
+    while (n && n.nodeName !== "A") n = n.nextSibling;
+    if (n) placeCaretAfterLink(n);
+    else {
+      editorBodyEl.focus();
+      var r = document.createRange();
+      r.selectNodeContents(editorBodyEl);
+      r.collapse(false);
+      var sel = window.getSelection();
       sel.removeAllRanges();
-      sel.addRange(saved);
+      sel.addRange(r);
     }
   }
 
@@ -1115,6 +1156,8 @@ $(function () {
     var n = a && a.previousSibling;
     if (n && n.nodeName === "BR") n = n.previousSibling;
     if (n && n.nodeType === 1 && n.classList.contains("link-title-loading")) return n;
+    var fetchId = a && a.getAttribute("data-title-fetch");
+    if (fetchId) return editorBodyEl.querySelector('.link-title-loading[data-title-fetch="' + fetchId + '"]');
     return null;
   }
 
@@ -1130,15 +1173,17 @@ $(function () {
     span.className = "link-title-loading";
     span.setAttribute("contenteditable", "false");
     span.textContent = "제목 불러오는 중…";
+    var fetchId = a.getAttribute("data-title-fetch");
+    if (fetchId) span.setAttribute("data-title-fetch", fetchId);
     withSavedCaret(function () {
       if (!isLinkAtLineStart(a)) a.parentNode.insertBefore(makeLoadingBr(), a);
       a.parentNode.insertBefore(span, a);
       a.parentNode.insertBefore(makeLoadingBr(), a);
     });
+    placeCaretAfterLink(a);
   }
 
-  function removeLinkTitleLoading(a) {
-    var span = findLinkTitleLoading(a);
+  function removeLoadingSpan(span) {
     if (!span || !span.parentNode) return;
     withSavedCaret(function () {
       var parent = span.parentNode;
@@ -1148,6 +1193,10 @@ $(function () {
       if (next && next.nodeName === "BR" && next.classList.contains("link-title-loading-br")) parent.removeChild(next);
       if (prev && prev.nodeName === "BR" && prev.classList.contains("link-title-loading-br")) parent.removeChild(prev);
     });
+  }
+
+  function removeLinkTitleLoading(a) {
+    removeLoadingSpan(findLinkTitleLoading(a));
   }
 
   function insertTitleAboveLink(a, title) {
@@ -1186,21 +1235,55 @@ $(function () {
     });
   }
 
+  var titleFetchSeq = 0;
+  function resolveLiveLink(fetchId, href, originalA) {
+    if (originalA && editorBodyEl.contains(originalA)) return originalA;
+    if (fetchId) {
+      var tagged = editorBodyEl.querySelector('a[data-title-fetch="' + fetchId + '"]');
+      if (tagged) return tagged;
+      var loading = editorBodyEl.querySelector('.link-title-loading[data-title-fetch="' + fetchId + '"]');
+      if (loading) {
+        var n = loading.nextSibling;
+        while (n && (n.nodeName === "BR" || (n.nodeType === 3 && !String(n.textContent).replace(/\u00A0/g, " ").trim()))) n = n.nextSibling;
+        if (n && n.nodeName === "A") return n;
+      }
+    }
+    if (!href) return null;
+    var links = editorBodyEl.getElementsByTagName("a");
+    var i;
+    for (i = 0; i < links.length; i++) {
+      if (links[i].getAttribute("href") === href && findLinkTitleLoading(links[i])) return links[i];
+    }
+    for (i = 0; i < links.length; i++) {
+      if (links[i].getAttribute("href") === href) return links[i];
+    }
+    return null;
+  }
+
   function enrichLinkWithTitle(a) {
     if (!a) return;
     var href = a.getAttribute("href");
     if (!/^https?:\/\//i.test(href || "")) return;
     var noteId = state.currentNoteId;
+    var fetchId = String(++titleFetchSeq);
+    a.setAttribute("data-title-fetch", fetchId);
     showLinkTitleLoading(a);
     fetchPageTitle(href).done(function (title) {
       if (state.currentNoteId !== noteId) return;
-      if (!editorBodyEl.contains(a)) return;
-      insertTitleAboveLink(a, title);
+      var live = resolveLiveLink(fetchId, href, a);
+      if (!live) return;
+      live.removeAttribute("data-title-fetch");
+      insertTitleAboveLink(live, title);
       saveCurrentNoteDebounced();
     }).fail(function () {
       if (state.currentNoteId !== noteId) return;
-      if (!editorBodyEl.contains(a)) return;
-      removeLinkTitleLoading(a);
+      var live = resolveLiveLink(fetchId, href, a);
+      if (live) {
+        live.removeAttribute("data-title-fetch");
+        removeLinkTitleLoading(live);
+      } else {
+        removeLoadingSpan(editorBodyEl.querySelector('.link-title-loading[data-title-fetch="' + fetchId + '"]'));
+      }
       saveCurrentNoteDebounced();
     });
   }
