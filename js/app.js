@@ -15,13 +15,21 @@ $(function () {
     exportSourceHTML: "",
     exportMode: null,
     undoStack: [],
-    redoStack: []
+    redoStack: [],
+    selectedImage: null
   };
 
   var exportState = { transparent: false, bg: "#2C2440", radius: 20, padding: 28 };
 
   // ---------- utils ----------
   function plainText(html) { return $("<div>").html(html || "").text().replace(/\s+/g, " ").trim(); }
+  function notePreviewText(html) {
+    var text = plainText(html);
+    var hasImg = /<img\b/i.test(html || "");
+    if (text && hasImg) return text + " · 이미지 포함";
+    if (!text && hasImg) return "이미지 포함";
+    return text || "내용 없음";
+  }
   function formatDate(ts) {
     var d = new Date(ts);
     return String(d.getMonth() + 1).padStart(2, "0") + "." + String(d.getDate()).padStart(2, "0");
@@ -139,6 +147,7 @@ $(function () {
 
   // ---------- navigation ----------
   function showListView() {
+    clearSelectedImage();
     state.lastOpenedId = state.currentNoteId;
     state.currentNoteId = null;
     $("#view-editor").addClass("hidden");
@@ -192,7 +201,7 @@ $(function () {
       }
       var $info = $('<div class="info"></div>').append(
         $titleRow,
-        $('<div class="p"></div>').text(plainText(note.bodyHTML) || "내용 없음")
+        $('<div class="p"></div>').text(notePreviewText(note.bodyHTML))
       );
       var $body = $('<div class="body"></div>').append($info, $('<div class="d"></div>').text(formatDate(note.updatedAt)));
       $card.append($cbox, $body);
@@ -364,6 +373,7 @@ $(function () {
   function openEditor(id) {
     var note = findNote(id);
     if (!note) return;
+    clearSelectedImage();
     state.selectedIds.clear();
     state.currentNoteId = id;
     $("#note-title").val(note.title || "");
@@ -463,10 +473,17 @@ $(function () {
     sel.removeAllRanges();
     sel.addRange(range);
   }
+  function getEditorBodyHTML() {
+    var img = state.selectedImage;
+    if (img) $(img).removeClass("note-img-selected");
+    var html = editorBodyEl.innerHTML;
+    if (img && editorBodyEl.contains(img)) $(img).addClass("note-img-selected");
+    return html;
+  }
   function captureSnapshot() {
     return {
       title: $("#note-title").val(),
-      bodyHTML: editorBodyEl.innerHTML,
+      bodyHTML: getEditorBodyHTML(),
       sel: captureEditorSelection(),
       scrollX: window.scrollX,
       scrollY: window.scrollY
@@ -489,6 +506,7 @@ $(function () {
     var note = findNote(state.currentNoteId);
     if (!note) return;
     hideFloatToolbar();
+    clearSelectedImage();
     $("#note-title").val(snap.title);
     editorBodyEl.innerHTML = snap.bodyHTML;
     note.title = snap.title;
@@ -523,7 +541,7 @@ $(function () {
     var note = findNote(state.currentNoteId);
     if (!note) return;
     var newTitle = $("#note-title").val();
-    var newBodyHTML = $("#editor-body").html();
+    var newBodyHTML = getEditorBodyHTML();
     if (newTitle === note.title && newBodyHTML === note.bodyHTML) return; // no real edit — don't bump updatedAt/reorder the list
     note.title = newTitle;
     note.bodyHTML = newBodyHTML;
@@ -1374,10 +1392,111 @@ $(function () {
     if (e.key === " " || e.key === "Enter") autolinkAtCaret();
   });
 
+  // ---------- inline images (paste / toolbar / drop) ----------
+  var MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
+  function isImageFile(file) {
+    return !!(file && file.type && file.type.indexOf("image/") === 0);
+  }
+
+  function getEditorInsertRange() {
+    var sel = window.getSelection();
+    if (sel.rangeCount > 0) {
+      var range = sel.getRangeAt(0);
+      if (editorBodyEl.contains(range.commonAncestorContainer)) return range.cloneRange();
+    }
+    var end = document.createRange();
+    end.selectNodeContents(editorBodyEl);
+    end.collapse(false);
+    return end;
+  }
+
+  function rangeFromPoint(x, y) {
+    var range = null;
+    if (document.caretRangeFromPoint) {
+      range = document.caretRangeFromPoint(x, y);
+    } else if (document.caretPositionFromPoint) {
+      var pos = document.caretPositionFromPoint(x, y);
+      if (pos && pos.offsetNode) {
+        range = document.createRange();
+        range.setStart(pos.offsetNode, pos.offset);
+        range.collapse(true);
+      }
+    }
+    if (range && editorBodyEl.contains(range.commonAncestorContainer)) return range;
+    return null;
+  }
+
+  function placeCaretAfterNode(node) {
+    placeCaretAfterLink(node);
+  }
+
+  function insertImageAtRange(dataUrl, alt, range) {
+    pushUndoSnapshot(true);
+    if (!range.collapsed) range.deleteContents();
+    var img = document.createElement("img");
+    img.className = "note-img";
+    img.src = dataUrl;
+    img.alt = alt || "이미지";
+    range.insertNode(img);
+    placeCaretAfterNode(img);
+    var after = document.createRange();
+    after.setStartAfter(img);
+    after.collapse(true);
+    return after;
+  }
+
+  function insertImageFiles(fileList, rangeOpt) {
+    var files = Array.from(fileList || []).filter(isImageFile);
+    if (files.length === 0) return;
+    var oversized = files.filter(function (f) { return f.size > MAX_IMAGE_BYTES; });
+    if (oversized.length) {
+      showToast("이미지는 파일당 5MB까지 넣을 수 있어요.");
+      files = files.filter(function (f) { return f.size <= MAX_IMAGE_BYTES; });
+      if (files.length === 0) return;
+    }
+    var range = rangeOpt ? rangeOpt.cloneRange() : getEditorInsertRange();
+    var chain = Promise.resolve(range);
+    files.forEach(function (file) {
+      chain = chain.then(function (r) {
+        return blobToDataUrl(file).then(function (dataUrl) {
+          return insertImageAtRange(dataUrl, file.name || "이미지", r);
+        });
+      });
+    });
+    chain.then(function () {
+      saveCurrentNoteDebounced();
+    }).catch(function () {
+      showToast("이미지를 넣는 데 실패했어요.");
+    });
+  }
+
+  function clipboardImageFiles(cd) {
+    var files = [];
+    if (cd.items) {
+      for (var i = 0; i < cd.items.length; i++) {
+        if (cd.items[i].type.indexOf("image/") === 0) {
+          var f = cd.items[i].getAsFile();
+          if (f) files.push(f);
+        }
+      }
+    }
+    if (files.length === 0 && cd.files && cd.files.length) {
+      files = Array.from(cd.files).filter(isImageFile);
+    }
+    return files;
+  }
+
   // autolink: pasting a bare URL wraps it (or the replaced selection text) as a link
   $("#editor-body").on("paste", function (e) {
     var cd = (e.originalEvent || e).clipboardData;
     if (!cd) return;
+    var imageFiles = clipboardImageFiles(cd);
+    if (imageFiles.length) {
+      e.preventDefault();
+      insertImageFiles(imageFiles);
+      return;
+    }
     var text = cd.getData("text/plain");
     if (!text) return;
     var trimmed = text.trim();
@@ -1395,6 +1514,134 @@ $(function () {
     placeCaretAfterLink(a);
     saveCurrentNoteDebounced();
     enrichLinkWithTitle(a);
+  });
+
+  var pendingImageRange = null;
+  $("#btn-insert-image").on("mousedown", function (e) {
+    e.preventDefault();
+    pendingImageRange = getEditorInsertRange();
+  });
+  $("#btn-insert-image").on("click", function () {
+    $("#image-file-input").trigger("click");
+  });
+  $("#image-file-input").on("change", function () {
+    insertImageFiles(this.files, pendingImageRange);
+    pendingImageRange = null;
+    this.value = "";
+  });
+
+  $("#editor-body").on("dragover", function (e) {
+    var dt = e.originalEvent.dataTransfer;
+    if (!dt) return;
+    var hasFiles = dt.types && (Array.from(dt.types).indexOf("Files") > -1 || dt.types.contains && dt.types.contains("Files"));
+    if (!hasFiles) return;
+    e.preventDefault();
+    dt.dropEffect = "copy";
+    $(this).addClass("drag-over");
+  });
+  $("#editor-body").on("dragleave", function (e) {
+    if (!$.contains(this, e.relatedTarget)) $(this).removeClass("drag-over");
+  });
+  $("#editor-body").on("drop", function (e) {
+    $(this).removeClass("drag-over");
+    var dt = e.originalEvent.dataTransfer;
+    if (!dt || !dt.files || !dt.files.length) return;
+    var images = Array.from(dt.files).filter(isImageFile);
+    if (images.length === 0) return;
+    e.preventDefault();
+    var range = rangeFromPoint(e.originalEvent.clientX, e.originalEvent.clientY) || getEditorInsertRange();
+    insertImageFiles(images, range);
+  });
+
+  // ---------- image resize (select + SE handle) ----------
+  var IMG_MIN_WIDTH = 48;
+  var $imgHandle = $('<div class="note-img-handle hidden" aria-hidden="true"></div>').appendTo(document.body);
+  var resizeDrag = null;
+
+  function clearSelectedImage() {
+    if (state.selectedImage) {
+      $(state.selectedImage).removeClass("note-img-selected");
+      state.selectedImage = null;
+    }
+    $imgHandle.addClass("hidden");
+    resizeDrag = null;
+  }
+
+  function positionImgHandle() {
+    var img = state.selectedImage;
+    if (!img || !editorBodyEl.contains(img)) {
+      clearSelectedImage();
+      return;
+    }
+    var rect = img.getBoundingClientRect();
+    var half = 5;
+    $imgHandle.css({
+      top: (rect.bottom - half) + "px",
+      left: (rect.right - half) + "px"
+    }).removeClass("hidden");
+  }
+
+  function selectImage(img) {
+    if (!img || !editorBodyEl.contains(img)) return;
+    if (state.selectedImage && state.selectedImage !== img) {
+      $(state.selectedImage).removeClass("note-img-selected");
+    }
+    state.selectedImage = img;
+    $(img).addClass("note-img-selected");
+    hideFloatToolbar();
+    positionImgHandle();
+  }
+
+  $("#editor-body").on("click", "img.note-img", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    selectImage(this);
+  });
+
+  $(document).on("mousedown", function (e) {
+    if (!state.selectedImage) return;
+    if ($(e.target).closest("img.note-img-selected, .note-img-handle").length) return;
+    clearSelectedImage();
+  });
+
+  $(document).on("keydown", function (e) {
+    if (e.key === "Escape" && state.selectedImage) {
+      clearSelectedImage();
+    }
+  });
+
+  $imgHandle.on("mousedown", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    var img = state.selectedImage;
+    if (!img) return;
+    pushUndoSnapshot(true);
+    resizeDrag = {
+      img: img,
+      startX: e.clientX,
+      startW: img.getBoundingClientRect().width
+    };
+  });
+
+  $(document).on("mousemove", function (e) {
+    if (!resizeDrag) return;
+    e.preventDefault();
+    var maxW = editorBodyEl.clientWidth;
+    var newW = Math.round(resizeDrag.startW + (e.clientX - resizeDrag.startX));
+    newW = Math.max(IMG_MIN_WIDTH, Math.min(maxW, newW));
+    resizeDrag.img.style.width = newW + "px";
+    positionImgHandle();
+  });
+
+  $(document).on("mouseup", function () {
+    if (!resizeDrag) return;
+    resizeDrag = null;
+    saveCurrentNoteDebounced();
+    positionImgHandle();
+  });
+
+  $(window).on("scroll resize", function () {
+    if (state.selectedImage) positionImgHandle();
   });
 
   // clicking a link opens it in a new tab instead of placing the caret
@@ -1419,7 +1666,7 @@ $(function () {
       var titleEmpty = !(note && note.title && note.title.trim());
       if (bodyEmpty && titleEmpty) { showToast("저장할 내용이 없어요."); return; }
       state.exportMode = "full";
-      state.exportSourceHTML = editorBodyEl.innerHTML;
+      state.exportSourceHTML = getEditorBodyHTML();
     }
     resetExportOptions();
     $("#modal-export").removeClass("hidden");
