@@ -4,34 +4,43 @@
 
 ## 프로젝트 개요
 
-빌드 도구 없는 순수 HTML/CSS/JavaScript 정적 웹 앱입니다. jQuery와 html2canvas는 CDN(`index.html`의 `<script>` 태그)으로 로드하며, 별도의 패키지 매니저나 번들러가 없습니다.
+Vite + React + TypeScript 메모 앱입니다. 스타일은 Tailwind CSS v4와 KRDS 토큰을 쓰고, 화면 상태는 Zustand, 저장소 상태는 TanStack Query를 사용합니다.
+
+데이터는 브라우저에만 둡니다. 메모와 설정은 localStorage, 폰트 파일은 IndexedDB입니다. 서버를 추가하지 않습니다. Firebase 연동은 요구사항 2단계이며, 저장소 교체는 `src/shared/storage/index.ts`에서만 합니다.
 
 ## 로컬 실행
 
 ```bash
 cd memo-app
-python3 -m http.server 8080
-# http://localhost:8080 접속
+npm install
+npm run dev
+# http://localhost:5173 접속
 ```
 
-`index.html`을 더블클릭해서 직접 열어도 대부분 동작하지만, 로컬 서버로 여는 걸 권장합니다.
+프로덕션 빌드는 `npm run build`이며, 결과물은 `dist/`입니다. 배포 경로 base는 `/memo-app/`입니다.
 
 ## 파일 구조
 
 ```
 memo-app/
-├── index.html       # 전체 화면(목록·편집·모달) 마크업
-├── css/style.css    # 스타일 (라이트/다크 테마는 CSS 변수로 전환)
-├── js/
-│   ├── app.js       # 전체 UI 로직 (jQuery, IIFE 하나로 구성)
-│   └── db.js        # IndexedDB 데이터 레이어 (notes, fonts 스토어)
-└── img/help/         # 앱 내 "사용법" 모달에 쓰이는 스크린샷
+├── index.html
+├── src/
+│   ├── index.css          # 전역 토큰, 다크 테마, 종이 결
+│   ├── app/               # 라우터, providers, 진입점
+│   ├── pages/             # 목록, 편집, 휴지통
+│   ├── features/          # 메모, 휴지통, 폰트, 테마, 설정
+│   ├── shared/            # 타입, 저장소 어댑터, 아이콘
+│   └── store/             # UI 상태
+├── docs/                  # 요구사항
+└── img/help/              # 사용법 스크린샷
 ```
+
+화면(목록 카드, 에디터, 휴지통 UI, 모달)은 이후 단계에서 붙입니다. 지금은 테마 전환이 되는 목록 껍데기와 데이터 계층까지입니다.
 
 ## 작업 규칙
 
-- **빌드 단계를 추가하지 마세요.** 트랜스파일러, 번들러, 프레임워크 도입은 이 프로젝트의 방향과 맞지 않습니다.
-- **데이터는 브라우저 IndexedDB에만 저장됩니다.** 서버·백엔드가 없고, 앞으로도 추가하지 않는 것이 기본 전제입니다.
-- **`js/app.js`는 jQuery 스타일(콜백/Promise 체인)로 통일되어 있습니다.** 새 코드도 기존 스타일(들여쓰기, 함수 선언 패턴)을 따라주세요.
-- **UI를 변경했다면 실제 브라우저에서 확인하세요.** 가능하면 Playwright 등으로 헤드리스 브라우저를 띄워 콘솔 에러 없이 동작하는지 확인한 뒤 완료로 보고하세요.
-- **커밋 전 사용자 승인 없이 `git push`, GitHub 설정 변경(예: Pages 활성화) 등 외부에 영향을 주는 작업을 하지 마세요.**
+- 저장소 접근은 `src/shared/storage` 어댑터를 통하고, 메서드는 `async`로 유지합니다.
+- 메모 본문과 제목을 `console`에 남기지 않습니다.
+- 비밀값은 `.env.*.local`에만 두고, `.env.example`에는 키 이름만 적습니다.
+- UI를 바꿨다면 브라우저에서 동작과 콘솔 에러를 확인합니다.
+- 사용자 승인 없이 `git push`나 GitHub 설정 변경을 하지 않습니다.

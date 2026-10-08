@@ -1,0 +1,22 @@
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import '@fontsource/ibm-plex-sans-kr/400.css';
+import '@fontsource/ibm-plex-sans-kr/500.css';
+import '@fontsource/ibm-plex-sans-kr/600.css';
+import '@/index.css';
+import { applyStoredTheme } from '@/features/theme/hooks/useTheme';
+import { Providers } from './providers';
+import { AppRouter } from './router';
+
+applyStoredTheme();
+
+const root = document.getElementById('root');
+if (!root) throw new Error('root 요소가 없습니다.');
+
+createRoot(root).render(
+  <StrictMode>
+    <Providers>
+      <AppRouter />
+    </Providers>
+  </StrictMode>,
+);

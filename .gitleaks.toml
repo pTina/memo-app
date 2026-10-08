@@ -1,0 +1,12 @@
+title = "memo-app"
+
+[extend]
+useDefault = true
+
+[allowlist]
+paths = [
+  '''scripts/check-secrets.mjs''',
+  '''\.gitleaks.toml''',
+  '''docs/요구사항정의서.md''',
+  '''package-lock.json''',
+]
