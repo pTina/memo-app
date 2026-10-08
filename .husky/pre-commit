@@ -1,0 +1,4 @@
+node scripts/check-secrets.mjs
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --config .gitleaks.toml --redact
+fi
