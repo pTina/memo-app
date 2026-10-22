@@ -63,25 +63,30 @@ export function FontManagerModal({ onClose }: FontManagerModalProps) {
   }, [renameId]);
 
   async function addFiles(list: FileList | File[]) {
+    if (save.isPending) return;
     const files = [...list];
     let current = fonts;
-    for (const file of files) {
-      const result = await validateFontFile(file, current);
-      if ('error' in result) {
-        setError(result.error);
-        return;
+    try {
+      for (const file of files) {
+        const result = await validateFontFile(file, current);
+        if ('error' in result) {
+          setError(result.error);
+          return;
+        }
+        const font: FontFile = {
+          id: crypto.randomUUID(),
+          name: displayNameFromFile(file),
+          format: result.format,
+          size: file.size,
+          blob: file,
+          createdAt: new Date().toISOString(),
+        };
+        await save.mutateAsync(font);
+        current = [font, ...current.filter((item) => item.id !== font.id)];
+        setError(null);
       }
-      const font: FontFile = {
-        id: crypto.randomUUID(),
-        name: displayNameFromFile(file),
-        format: result.format,
-        size: file.size,
-        blob: file,
-        createdAt: new Date().toISOString(),
-      };
-      await save.mutateAsync(font);
-      current = [font, ...current.filter((item) => item.id !== font.id)];
-      setError(null);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '폰트를 올리지 못했습니다.');
     }
   }
 
@@ -114,7 +119,7 @@ export function FontManagerModal({ onClose }: FontManagerModalProps) {
           {fonts.length}/{FONT_MAX_COUNT}개 · {formatBytes(used)} / {formatBytes(FONT_MAX_TOTAL_BYTES)}
         </p>
         <label
-          className={`mt-4 flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed px-4 py-6 text-sm ${dragging ? 'border-ink bg-accent' : 'border-line-strong bg-canvas'}`}
+          className={`mt-4 flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed px-4 py-6 text-sm ${save.isPending ? 'pointer-events-none opacity-50' : ''} ${dragging ? 'border-ink bg-accent' : 'border-line-strong bg-canvas'}`}
           onDragOver={(event) => {
             event.preventDefault();
             setDragging(true);
@@ -127,12 +132,13 @@ export function FontManagerModal({ onClose }: FontManagerModalProps) {
           }}
         >
           <UploadIcon />
-          파일을 끌어다 놓거나 클릭해서 올리기
+          {save.isPending ? '업로드 중입니다.' : '파일을 끌어다 놓거나 클릭해서 올리기'}
           <span className="text-muted">ttf, otf, woff, woff2 · 파일당 20MB</span>
           <input
             ref={inputRef}
             type="file"
             multiple
+            disabled={save.isPending}
             className="sr-only"
             onChange={(event) => {
               if (event.target.files) void addFiles(event.target.files);

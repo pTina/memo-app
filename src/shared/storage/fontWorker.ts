@@ -9,8 +9,14 @@ export function fontWorkerUrl() {
   return envText(import.meta.env.VITE_FONT_WORKER_URL).replace(/\/$/, '');
 }
 
+function isLocalHost() {
+  if (typeof window === 'undefined') return false;
+  const host = window.location.hostname;
+  return host === 'localhost' || host === '127.0.0.1';
+}
+
 export function usesFontWorker() {
-  return usesCloudStorage() && Boolean(fontWorkerUrl());
+  return usesCloudStorage() && Boolean(fontWorkerUrl()) && !isLocalHost();
 }
 
 async function authHeader() {
@@ -30,7 +36,7 @@ export async function uploadFontBlob(id: string, blob: Blob, format: FontFormat)
     },
     body: blob,
   });
-  if (!res.ok) throw new Error('폰트를 클라우드에 올리지 못했습니다.');
+  if (res.status !== 204) throw new Error('폰트를 클라우드에 올리지 못했습니다. 워커 코드가 배포됐는지 확인하세요.');
 }
 
 export async function downloadFontBlob(id: string): Promise<Blob> {

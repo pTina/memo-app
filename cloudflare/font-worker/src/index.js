@@ -6,9 +6,20 @@ const ALLOWED_ORIGIN = [
   'https://ptina.github.io',
 ];
 
+function allowedOrigin(origin) {
+  if (ALLOWED_ORIGIN.includes(origin)) return origin;
+  try {
+    const host = new URL(origin).hostname;
+    if (host === 'localhost' || host === '127.0.0.1') return origin;
+  } catch {
+    return '';
+  }
+  return '';
+}
+
 function cors(request) {
   const origin = request.headers.get('Origin') ?? '';
-  const allow = ALLOWED_ORIGIN.includes(origin) ? origin : ALLOWED_ORIGIN[2];
+  const allow = allowedOrigin(origin) || ALLOWED_ORIGIN[2];
   return {
     'Access-Control-Allow-Origin': allow,
     'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
