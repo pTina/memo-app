@@ -32,7 +32,7 @@ export function FontManagerModal({ onClose }: FontManagerModalProps) {
   const [renameValue, setRenameValue] = useState('');
   const [pendingDelete, setPendingDelete] = useState<FontFile | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [uploadingName, setUploadingName] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const busy = uploading || Boolean(deletingId);
   const used = fonts.reduce((sum, font) => sum + font.size, 0);
@@ -86,7 +86,7 @@ export function FontManagerModal({ onClose }: FontManagerModalProps) {
           blob: file,
           createdAt: new Date().toISOString(),
         };
-        setUploadingId(font.id);
+        setUploadingName(font.name);
         await save.mutateAsync(font);
         current = [font, ...current.filter((item) => item.id !== font.id)];
         setError(null);
@@ -95,7 +95,7 @@ export function FontManagerModal({ onClose }: FontManagerModalProps) {
       setError(caught instanceof Error ? caught.message : '폰트를 올리지 못했습니다.');
     } finally {
       setUploading(false);
-      setUploadingId(null);
+      setUploadingName(null);
     }
   }
 
@@ -128,7 +128,9 @@ export function FontManagerModal({ onClose }: FontManagerModalProps) {
           {fonts.length}/{FONT_MAX_COUNT}개 · {formatBytes(used)} / {formatBytes(FONT_MAX_TOTAL_BYTES)}
         </p>
         {uploading ? (
-          <p role="status" className="mt-3 rounded-lg bg-accent px-3 py-2 text-sm text-ink">업로드 중입니다.</p>
+          <p role="status" className="mt-3 rounded-lg bg-accent px-3 py-2 text-sm text-ink">
+            {uploadingName ? `${uploadingName} 업로드 중입니다.` : '업로드 중입니다.'}
+          </p>
         ) : null}
         {deletingId ? (
           <p role="status" className="mt-3 rounded-lg bg-accent px-3 py-2 text-sm text-ink">삭제 중입니다.</p>
@@ -189,11 +191,10 @@ export function FontManagerModal({ onClose }: FontManagerModalProps) {
                 <p className="min-w-0 flex-1 truncate text-sm text-ink">
                   {font.name}
                   <span className="ml-2 text-muted">{formatBytes(font.size)}</span>
-                  {uploadingId === font.id ? <span className="ml-2 text-muted">업로드 중</span> : null}
                   {deletingId === font.id ? <span className="ml-2 text-muted">삭제 중</span> : null}
                 </p>
               )}
-              {renameId === font.id || uploadingId === font.id || deletingId === font.id ? null : (
+              {renameId === font.id || deletingId === font.id ? null : (
                 <button
                   type="button"
                   className="rounded-lg px-2 py-1 text-sm text-ink"
@@ -205,7 +206,7 @@ export function FontManagerModal({ onClose }: FontManagerModalProps) {
                   이름 변경
                 </button>
               )}
-              <button type="button" aria-label={`${font.name} 삭제`} disabled={uploadingId === font.id || Boolean(deletingId)} className="inline-flex size-9 items-center justify-center rounded-lg text-ink disabled:opacity-40" onClick={() => setPendingDelete(font)}>
+              <button type="button" aria-label={`${font.name} 삭제`} disabled={busy} className="inline-flex size-9 items-center justify-center rounded-lg text-ink disabled:opacity-40" onClick={() => setPendingDelete(font)}>
                 <DeleteIcon />
               </button>
             </li>

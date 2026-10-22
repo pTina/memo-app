@@ -18,11 +18,20 @@ export function useFontMutations() {
     onMutate: async (font) => {
       await queryClient.cancelQueries({ queryKey: ['fonts'] });
       const previous = queryClient.getQueryData<FontFile[]>(['fonts']);
+      const exists = previous?.some((item) => item.id === font.id);
+      if (exists) {
+        queryClient.setQueryData<FontFile[]>(['fonts'], (current) => {
+          const without = (current ?? []).filter((item) => item.id !== font.id);
+          return [font, ...without];
+        });
+      }
+      return { previous };
+    },
+    onSuccess: (_data, font) => {
       queryClient.setQueryData<FontFile[]>(['fonts'], (current) => {
         const without = (current ?? []).filter((item) => item.id !== font.id);
         return [font, ...without];
       });
-      return { previous };
     },
     onError: (_error, _font, context) => {
       if (context) queryClient.setQueryData(['fonts'], context.previous);
