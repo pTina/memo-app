@@ -31,12 +31,16 @@ export function FontManagerModal({ onClose }: FontManagerModalProps) {
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [pendingDelete, setPendingDelete] = useState<FontFile | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const busy = uploading || Boolean(deletingId);
   const used = fonts.reduce((sum, font) => sum + font.size, 0);
 
   useEffect(() => {
     if (!renameId) closeRef.current?.focus();
     function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape' && !pendingDelete && !renameId && !error) {
+      if (event.key === 'Escape' && !pendingDelete && !renameId && !error && !busy) {
         onCloseRef.current();
         return;
       }
@@ -56,16 +60,17 @@ export function FontManagerModal({ onClose }: FontManagerModalProps) {
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [pendingDelete, renameId, error]);
+  }, [pendingDelete, renameId, error, busy]);
 
   useEffect(() => {
     if (renameId) renameInputRef.current?.focus();
   }, [renameId]);
 
   async function addFiles(list: FileList | File[]) {
-    if (save.isPending) return;
+    if (busy) return;
     const files = [...list];
     let current = fonts;
+    setUploading(true);
     try {
       for (const file of files) {
         const result = await validateFontFile(file, current);
@@ -81,12 +86,16 @@ export function FontManagerModal({ onClose }: FontManagerModalProps) {
           blob: file,
           createdAt: new Date().toISOString(),
         };
+        setUploadingId(font.id);
         await save.mutateAsync(font);
         current = [font, ...current.filter((item) => item.id !== font.id)];
         setError(null);
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '폰트를 올리지 못했습니다.');
+    } finally {
+      setUploading(false);
+      setUploadingId(null);
     }
   }
 
@@ -100,7 +109,7 @@ export function FontManagerModal({ onClose }: FontManagerModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 px-4" onMouseDown={() => onCloseRef.current()}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 px-4" onMouseDown={() => { if (!busy) onCloseRef.current(); }}>
       <div
         ref={dialogRef}
         role="dialog"
@@ -111,15 +120,21 @@ export function FontManagerModal({ onClose }: FontManagerModalProps) {
       >
         <div className="flex items-center gap-2">
           <h2 id="font-manager-title" className="flex-1 text-lg">폰트 관리</h2>
-          <button ref={closeRef} type="button" aria-label="닫기" className="inline-flex size-9 items-center justify-center rounded-lg text-ink" onClick={() => onCloseRef.current()}>
+          <button ref={closeRef} type="button" aria-label="닫기" disabled={busy} className="inline-flex size-9 items-center justify-center rounded-lg text-ink disabled:opacity-40" onClick={() => onCloseRef.current()}>
             <CloseIcon />
           </button>
         </div>
         <p className="mt-2 text-sm text-muted">
           {fonts.length}/{FONT_MAX_COUNT}개 · {formatBytes(used)} / {formatBytes(FONT_MAX_TOTAL_BYTES)}
         </p>
+        {uploading ? (
+          <p role="status" className="mt-3 rounded-lg bg-accent px-3 py-2 text-sm text-ink">업로드 중입니다.</p>
+        ) : null}
+        {deletingId ? (
+          <p role="status" className="mt-3 rounded-lg bg-accent px-3 py-2 text-sm text-ink">삭제 중입니다.</p>
+        ) : null}
         <label
-          className={`mt-4 flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed px-4 py-6 text-sm ${save.isPending ? 'pointer-events-none opacity-50' : ''} ${dragging ? 'border-ink bg-accent' : 'border-line-strong bg-canvas'}`}
+          className={`mt-4 flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed px-4 py-6 text-sm ${busy ? 'pointer-events-none opacity-50' : ''} ${dragging ? 'border-ink bg-accent' : 'border-line-strong bg-canvas'}`}
           onDragOver={(event) => {
             event.preventDefault();
             setDragging(true);
@@ -132,13 +147,13 @@ export function FontManagerModal({ onClose }: FontManagerModalProps) {
           }}
         >
           <UploadIcon />
-          {save.isPending ? '업로드 중입니다.' : '파일을 끌어다 놓거나 클릭해서 올리기'}
+          파일을 끌어다 놓거나 클릭해서 올리기
           <span className="text-muted">ttf, otf, woff, woff2 · 파일당 20MB</span>
           <input
             ref={inputRef}
             type="file"
             multiple
-            disabled={save.isPending}
+            disabled={busy}
             className="sr-only"
             onChange={(event) => {
               if (event.target.files) void addFiles(event.target.files);
@@ -174,9 +189,11 @@ export function FontManagerModal({ onClose }: FontManagerModalProps) {
                 <p className="min-w-0 flex-1 truncate text-sm text-ink">
                   {font.name}
                   <span className="ml-2 text-muted">{formatBytes(font.size)}</span>
+                  {uploadingId === font.id ? <span className="ml-2 text-muted">업로드 중</span> : null}
+                  {deletingId === font.id ? <span className="ml-2 text-muted">삭제 중</span> : null}
                 </p>
               )}
-              {renameId === font.id ? null : (
+              {renameId === font.id || uploadingId === font.id || deletingId === font.id ? null : (
                 <button
                   type="button"
                   className="rounded-lg px-2 py-1 text-sm text-ink"
@@ -188,7 +205,7 @@ export function FontManagerModal({ onClose }: FontManagerModalProps) {
                   이름 변경
                 </button>
               )}
-              <button type="button" aria-label={`${font.name} 삭제`} className="inline-flex size-9 items-center justify-center rounded-lg text-ink" onClick={() => setPendingDelete(font)}>
+              <button type="button" aria-label={`${font.name} 삭제`} disabled={uploadingId === font.id || Boolean(deletingId)} className="inline-flex size-9 items-center justify-center rounded-lg text-ink disabled:opacity-40" onClick={() => setPendingDelete(font)}>
                 <DeleteIcon />
               </button>
             </li>
@@ -196,7 +213,7 @@ export function FontManagerModal({ onClose }: FontManagerModalProps) {
         </ul>
       </div>
       {error ? (
-        <AlertDialog title="업로드할 수 없습니다" description={error} onClose={() => setError(null)} />
+        <AlertDialog title="처리할 수 없습니다" description={error} onClose={() => setError(null)} />
       ) : null}
       {pendingDelete ? (
         <ConfirmDialog
@@ -207,7 +224,14 @@ export function FontManagerModal({ onClose }: FontManagerModalProps) {
           confirmIcon={<DeleteIcon className="text-sunday" />}
           onClose={() => setPendingDelete(null)}
           onConfirm={() => {
-            remove.mutate(pendingDelete.id, { onSuccess: () => setPendingDelete(null) });
+            const id = pendingDelete.id;
+            setPendingDelete(null);
+            setDeletingId(id);
+            void remove.mutateAsync(id).catch((caught: unknown) => {
+              setError(caught instanceof Error ? caught.message : '폰트를 삭제하지 못했습니다.');
+            }).finally(() => {
+              setDeletingId(null);
+            });
           }}
         />
       ) : null}

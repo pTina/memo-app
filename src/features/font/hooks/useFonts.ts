@@ -36,8 +36,6 @@ export function useFontMutations() {
     mutationFn: (id: string) => fontApi.remove(id),
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ['fonts'] });
-      const previous = queryClient.getQueryData<FontFile[]>(['fonts']);
-      queryClient.setQueryData<FontFile[]>(['fonts'], (current) => current?.filter((font) => font.id !== id));
       queryClient.setQueriesData<Memo[]>({ queryKey: ['memos'] }, (current) => (
         current?.map((memo) => (memo.fontId === id ? { ...memo, fontId: null } : memo))
       ));
@@ -47,10 +45,11 @@ export function useFontMutations() {
       queryClient.setQueryData<Settings>(['settings'], (current) => (
         current && current.defaultFontId === id ? { ...current, defaultFontId: null } : current
       ));
-      return { previous };
     },
-    onError: (_error, _id, context) => {
-      if (context) queryClient.setQueryData(['fonts'], context.previous);
+    onSuccess: (_data, id) => {
+      queryClient.setQueryData<FontFile[]>(['fonts'], (current) => current?.filter((font) => font.id !== id));
+    },
+    onError: () => {
       invalidateMemoQueries(queryClient);
     },
     onSettled: () => {
