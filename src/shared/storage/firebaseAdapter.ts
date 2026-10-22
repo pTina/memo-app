@@ -1,9 +1,10 @@
 import { deleteDoc, doc, getDoc, getDocs, collection, setDoc, updateDoc } from 'firebase/firestore';
 import { gateSecrets } from '@/features/security/utils/secretGate';
-import type { Memo, Settings } from '@/shared/types';
+import type { FontFile, Memo, Settings } from '@/shared/types';
 import { defaultSettings } from '@/shared/types';
 import { getFirebaseAuth, getFirebaseDb } from '../lib/firebase';
 import type { StorageAdapter } from './adapter';
+import { deleteFontRemote, downloadFontBlob, uploadFontBlob, usesFontWorker } from './fontWorker';
 import { deleteFontBlob, localAdapter } from './localAdapter';
 
 let queue: Promise<void> = Promise.resolve();
@@ -44,6 +45,27 @@ function isSettings(value: unknown): value is Settings {
     && typeof row.dateWithTime === 'boolean'
     && (row.sortBy === 'createdAt' || row.sortBy === 'updatedAt')
     && typeof row.secretCheck === 'boolean';
+}
+
+function isFontMeta(value: unknown): value is Omit<FontFile, 'blob'> {
+  if (!value || typeof value !== 'object') return false;
+  const row = value as FontFile;
+  const format = row.format;
+  return typeof row.id === 'string'
+    && typeof row.name === 'string'
+    && (format === 'ttf' || format === 'otf' || format === 'woff' || format === 'woff2')
+    && typeof row.size === 'number'
+    && typeof row.createdAt === 'string';
+}
+
+function fontMeta(font: FontFile) {
+  return {
+    id: font.id,
+    name: font.name,
+    format: font.format,
+    size: font.size,
+    createdAt: font.createdAt,
+  };
 }
 
 function isMemo(value: unknown): value is Memo {
@@ -100,16 +122,50 @@ export const firebaseAdapter: StorageAdapter = {
     });
   },
 
-  listFonts() {
-    return localAdapter.listFonts();
+  async listFonts() {
+    const local = await localAdapter.listFonts();
+    if (!usesFontWorker()) return local;
+    const snap = await withTimeout(getDocs(collection(getFirebaseDb(), 'users', uid(), 'fonts')));
+    const metas = snap.docs.map((row) => row.data()).filter(isFontMeta);
+    const cached = new Map(local.map((font) => [font.id, font]));
+    const listed: FontFile[] = [];
+    for (const meta of metas) {
+      const hit = cached.get(meta.id);
+      if (hit && hit.size === meta.size) {
+        listed.push({ ...hit, name: meta.name, format: meta.format });
+        continue;
+      }
+      const blob = await downloadFontBlob(meta.id);
+      const font: FontFile = { ...meta, blob };
+      await localAdapter.saveFont(font);
+      listed.push(font);
+    }
+    for (const font of local) {
+      if (!metas.some((meta) => meta.id === font.id)) listed.push(font);
+    }
+    return listed;
   },
 
   saveFont(font) {
-    return localAdapter.saveFont(font);
+    return enqueue(async () => {
+      if (usesFontWorker()) {
+        const userId = uid();
+        const snap = await getDoc(doc(getFirebaseDb(), 'users', userId, 'fonts', font.id));
+        const existing = snap.data();
+        const sameFile = isFontMeta(existing) && existing.size === font.size;
+        if (!sameFile) await uploadFontBlob(font.id, font.blob, font.format);
+        await setDoc(doc(getFirebaseDb(), 'users', userId, 'fonts', font.id), fontMeta(font));
+      }
+      await localAdapter.saveFont(font);
+    });
   },
 
   deleteFont(id) {
     return enqueue(async () => {
+      if (usesFontWorker()) {
+        await deleteFontRemote(id);
+        await deleteDoc(doc(getFirebaseDb(), 'users', uid(), 'fonts', id));
+      }
       await deleteFontBlob(id);
       const userId = uid();
       const memos = await getDocs(collection(getFirebaseDb(), 'users', userId, 'memos'));

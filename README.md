@@ -20,7 +20,7 @@ npm install
 npm run dev
 ```
 
-브라우저에서 http://localhost:5173 을 엽니다. 실제 Google 로그인을 쓰려면 `.env.local`에 Firebase 웹 설정(키 이름만 `.env.example` 참고)을 넣습니다.
+브라우저에서 http://localhost:5173 을 엽니다. 실제 Google 로그인을 쓰려면 `.env.local`에 Firebase 웹 설정(키 이름만 `.env.example` 참고)을 넣습니다. 기기 간 폰트 동기화는 `VITE_FONT_WORKER_URL`과 Cloudflare 워커가 필요합니다.
 
 GitHub Pages는 `gh-pages` 브랜치의 빌드 결과물을 사용합니다. `npm run deploy:pages`로 배포합니다. Firebase 인증 승인된 도메인에 `ptina.github.io`를 추가해야 라이브에서 Google 로그인이 됩니다.
 

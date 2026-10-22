@@ -1,0 +1,10 @@
+name = "memo-fonts"
+main = "src/index.js"
+compatibility_date = "2026-10-22"
+
+[[r2_buckets]]
+binding = "FONTS"
+bucket_name = "memo-fonts"
+
+[vars]
+FIREBASE_PROJECT_ID = ""

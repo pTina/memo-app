@@ -12,7 +12,7 @@ const CSP = [
   "style-src 'self' 'unsafe-inline' https://accounts.google.com https://www.gstatic.com",
   "img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com https://*.google.com",
   "font-src 'self' data: blob:",
-  "connect-src 'self' https://*.googleapis.com https://*.gstatic.com https://*.firebaseio.com https://*.cloudfunctions.net https://*.firebaseapp.com https://accounts.google.com https://apis.google.com",
+  "connect-src 'self' https://*.googleapis.com https://*.gstatic.com https://*.firebaseio.com https://*.cloudfunctions.net https://*.firebaseapp.com https://accounts.google.com https://apis.google.com https://*.workers.dev",
   "frame-src https://accounts.google.com https://*.firebaseapp.com https://apis.google.com",
   "object-src 'none'",
   "base-uri 'self'",
