@@ -1,5 +1,4 @@
-import { cpSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
@@ -13,7 +12,9 @@ function run(cmd, args, cwd) {
 run('npm', ['run', 'build']);
 
 const remote = spawnSync('git', ['remote', 'get-url', 'origin'], { encoding: 'utf8' }).stdout.trim();
-const dir = mkdtempSync(join(tmpdir(), 'memo-pages-'));
+const dir = join(process.cwd(), '.pages-deploy');
+rmSync(dir, { recursive: true, force: true });
+mkdirSync(dir);
 cpSync('dist', dir, { recursive: true });
 writeFileSync(join(dir, '.nojekyll'), '');
 

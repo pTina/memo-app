@@ -13,6 +13,7 @@ llms.txt
 
 node_modules/
 dist/
+.pages-deploy/
 coverage/
 playwright-report/
 test-results/
