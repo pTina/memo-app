@@ -6,7 +6,10 @@ function envText(value: string | undefined) {
 }
 
 export function fontWorkerUrl() {
-  return envText(import.meta.env.VITE_FONT_WORKER_URL).replace(/\/$/, '');
+  const raw = envText(import.meta.env.VITE_FONT_WORKER_URL).replace(/\/$/, '');
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `https://${raw}`;
 }
 
 function isLocalHost() {
