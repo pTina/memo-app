@@ -5,5 +5,6 @@ export function useTrash() {
   return useQuery({
     queryKey: ['trash'],
     queryFn: () => memoApi.listTrash(),
+    retry: 0,
   });
 }

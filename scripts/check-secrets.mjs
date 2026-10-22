@@ -15,7 +15,9 @@ const skip = new Set([
   'scripts/check-secrets.mjs',
   '.gitleaks.toml',
   '.env.example',
+  '.env.admin',
   'docs/요구사항정의서.md',
+  'src/features/security/utils/secretPatterns.ts',
   'package-lock.json',
 ]);
 

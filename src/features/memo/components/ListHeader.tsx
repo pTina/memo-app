@@ -1,6 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router';
+import { AccountMenu } from '@/features/auth/components/AccountMenu';
 import { useTheme } from '@/features/theme/hooks/useTheme';
+import { usesCloudStorage } from '@/shared/lib/firebase';
 import { MoonIcon, MoreIcon, PlusIcon, SettingsIcon, SunIcon, TrashIcon } from '@/shared/ui/icons';
 import { SearchInput } from './SearchInput';
 
@@ -62,8 +64,11 @@ export function ListHeader({ creating, onCreate, onSettings }: ListHeaderProps) 
         <button type="button" aria-label={`테마, 현재 ${themeLabel[theme]}`} className={iconButton} onClick={cycleTheme}>
           <ThemeIcon />
         </button>
+        {usesCloudStorage() ? <AccountMenu /> : null}
       </div>
-      <div className="relative lg:hidden" ref={menuRef}>
+      <div className="flex items-center gap-1 lg:hidden">
+        {usesCloudStorage() ? <AccountMenu /> : null}
+      <div className="relative" ref={menuRef}>
         <button
           ref={moreRef}
           type="button"
@@ -98,6 +103,7 @@ export function ListHeader({ creating, onCreate, onSettings }: ListHeaderProps) 
             </button>
           </div>
         ) : null}
+      </div>
       </div>
       <button
         type="button"

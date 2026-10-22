@@ -16,7 +16,7 @@ export const memoApi = {
 
   async save(memo: Memo): Promise<Memo> {
     await storage.saveMemo(memo);
-    return memo;
+    return (await storage.getMemo(memo.id)) ?? memo;
   },
 
   async softDelete(id: string): Promise<Memo | null> {

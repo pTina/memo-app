@@ -5,11 +5,13 @@ import type { Memo } from '@/shared/types';
 
 type TrashItemProps = {
   memo: Memo;
+  selected?: boolean;
+  onToggle?: (id: string) => void;
   onRestore: (id: string) => void;
   onDelete: (memo: Memo) => void;
 };
 
-export function TrashItem({ memo, onRestore, onDelete }: TrashItemProps) {
+export function TrashItem({ memo, selected = false, onToggle, onRestore, onDelete }: TrashItemProps) {
   const title = memo.title.trim() || '제목 없음';
   const deletedAt = memo.deletedAt ?? '';
   const days = daysUntilPurge(deletedAt);
@@ -17,7 +19,16 @@ export function TrashItem({ memo, onRestore, onDelete }: TrashItemProps) {
 
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 border-b border-line py-4">
-      <div className="min-w-0">
+      {onToggle ? (
+        <input
+          type="checkbox"
+          className="size-4 accent-ink"
+          checked={selected}
+          aria-label={`${title} 선택`}
+          onChange={() => onToggle(memo.id)}
+        />
+      ) : null}
+      <div className="min-w-0 flex-1">
         <p className={`truncate ${memo.title.trim() ? 'text-ink' : 'text-faint'}`}>{title}</p>
         <p className="mt-1 text-sm text-muted">삭제일 {formatMemoDate(deletedAt)} · {remain}</p>
       </div>

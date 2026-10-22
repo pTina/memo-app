@@ -13,7 +13,7 @@ export function MemoEditorPage() {
   const dateWithTime = (settings ?? readSettingsSync()).dateWithTime;
   const memo = memoQuery.data;
 
-  if (memoQuery.isPending) {
+  if (!memo && memoQuery.isPending) {
     return (
       <main className="relative z-10 mx-auto min-h-full max-w-3xl bg-canvas px-4 py-6 text-ink lg:px-8">
         <p className="text-sm text-muted">메모를 불러오는 중입니다.</p>

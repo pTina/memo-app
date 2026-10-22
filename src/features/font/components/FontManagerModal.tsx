@@ -23,6 +23,7 @@ export function FontManagerModal({ onClose }: FontManagerModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const [dragging, setDragging] = useState(false);
@@ -33,7 +34,7 @@ export function FontManagerModal({ onClose }: FontManagerModalProps) {
   const used = fonts.reduce((sum, font) => sum + font.size, 0);
 
   useEffect(() => {
-    closeRef.current?.focus();
+    if (!renameId) closeRef.current?.focus();
     function onKey(event: KeyboardEvent) {
       if (event.key === 'Escape' && !pendingDelete && !renameId && !error) {
         onCloseRef.current();
@@ -56,6 +57,10 @@ export function FontManagerModal({ onClose }: FontManagerModalProps) {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [pendingDelete, renameId, error]);
+
+  useEffect(() => {
+    if (renameId) renameInputRef.current?.focus();
+  }, [renameId]);
 
   async function addFiles(list: FileList | File[]) {
     const files = [...list];
@@ -90,7 +95,7 @@ export function FontManagerModal({ onClose }: FontManagerModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4" onMouseDown={() => onCloseRef.current()}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 px-4" onMouseDown={() => onCloseRef.current()}>
       <div
         ref={dialogRef}
         role="dialog"
@@ -142,7 +147,7 @@ export function FontManagerModal({ onClose }: FontManagerModalProps) {
             <li key={font.id} className="flex items-center gap-2 border-t border-line py-2">
               {renameId === font.id ? (
                 <input
-                  autoFocus
+                  ref={renameInputRef}
                   value={renameValue}
                   aria-label="서체 이름"
                   className="min-w-0 flex-1 rounded-lg border border-line-strong bg-canvas px-2 py-1 text-sm text-ink"
@@ -160,16 +165,21 @@ export function FontManagerModal({ onClose }: FontManagerModalProps) {
                   }}
                 />
               ) : (
+                <p className="min-w-0 flex-1 truncate text-sm text-ink">
+                  {font.name}
+                  <span className="ml-2 text-muted">{formatBytes(font.size)}</span>
+                </p>
+              )}
+              {renameId === font.id ? null : (
                 <button
                   type="button"
-                  className="min-w-0 flex-1 truncate text-left text-sm text-ink"
+                  className="rounded-lg px-2 py-1 text-sm text-ink"
                   onClick={() => {
                     setRenameId(font.id);
                     setRenameValue(font.name);
                   }}
                 >
-                  {font.name}
-                  <span className="ml-2 text-muted">{formatBytes(font.size)}</span>
+                  이름 변경
                 </button>
               )}
               <button type="button" aria-label={`${font.name} 삭제`} className="inline-flex size-9 items-center justify-center rounded-lg text-ink" onClick={() => setPendingDelete(font)}>

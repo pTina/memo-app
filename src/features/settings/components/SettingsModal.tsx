@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { FontManagerModal } from '@/features/font/components/FontManagerModal';
+import { FontSelect } from '@/features/font/components/FontSelect';
 import { useFonts } from '@/features/font/hooks/useFonts';
 import { invalidateMemoQueries } from '@/features/memo/hooks/memoCache';
 import { useTheme } from '@/features/theme/hooks/useTheme';
+import { usesCloudStorage } from '@/shared/lib/firebase';
 import { readSettingsSync } from '@/shared/storage/localAdapter';
 import type { ThemePreference } from '@/shared/types';
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog';
@@ -34,15 +37,16 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   onCloseRef.current = onClose;
   const [confirmWipe, setConfirmWipe] = useState(false);
   const [wiping, setWiping] = useState(false);
+  const [fontsOpen, setFontsOpen] = useState(false);
 
   useEffect(() => {
     closeRef.current?.focus();
     function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape' && !confirmWipe) onCloseRef.current();
+      if (event.key === 'Escape' && !confirmWipe && !fontsOpen) onCloseRef.current();
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [confirmWipe]);
+  }, [confirmWipe, fontsOpen]);
 
   function patch(next: Partial<typeof settings>) {
     updateSettings.mutate({ ...settings, ...next });
@@ -92,18 +96,16 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
             ))}
           </div>
         </fieldset>
-        <label className="mt-5 block text-sm" htmlFor="settings-default-font">새 메모 기본 서체</label>
-        <select
-          id="settings-default-font"
-          value={settings.defaultFontId ?? ''}
-          className="mt-1 w-full rounded-lg border border-line-strong bg-canvas px-2 py-1.5 text-sm text-ink"
-          onChange={(event) => patch({ defaultFontId: event.target.value || null })}
-        >
-          <option value="">기본 서체</option>
-          {(fonts ?? []).map((font) => (
-            <option key={font.id} value={font.id}>{font.name}</option>
-          ))}
-        </select>
+        <p className="mt-5 text-sm" id="settings-default-font-label">새 메모 기본 서체</p>
+        <div className="mt-1">
+          <FontSelect
+            inputId="settings-default-font"
+            fonts={fonts ?? []}
+            value={settings.defaultFontId}
+            onChange={(fontId) => patch({ defaultFontId: fontId })}
+            onManage={() => setFontsOpen(true)}
+          />
+        </div>
         <label className="mt-5 flex items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -112,6 +114,16 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
           />
           날짜 삽입 시 시간 포함
         </label>
+        {usesCloudStorage() ? (
+          <label className="mt-5 flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={settings.secretCheck}
+              onChange={(event) => patch({ secretCheck: event.target.checked })}
+            />
+            저장 전 비밀값 검사
+          </label>
+        ) : null}
         <div className="mt-8 border-t border-line pt-5">
           <button
             type="button"
@@ -123,6 +135,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
           </button>
         </div>
       </div>
+      {fontsOpen ? <FontManagerModal onClose={() => setFontsOpen(false)} /> : null}
       {confirmWipe ? (
         <ConfirmDialog
           title="로컬 데이터 삭제"

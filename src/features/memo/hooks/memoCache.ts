@@ -10,7 +10,6 @@ export type MemoCacheSnapshot = {
 export async function pauseMemoQueries(queryClient: QueryClient): Promise<MemoCacheSnapshot> {
   await queryClient.cancelQueries({ queryKey: ['memos'] });
   await queryClient.cancelQueries({ queryKey: ['trash'] });
-  await queryClient.cancelQueries({ queryKey: ['memo'] });
   return {
     lists: queryClient.getQueriesData<Memo[]>({ queryKey: ['memos'] }),
     trash: queryClient.getQueryData<Memo[]>(['trash']),
@@ -27,7 +26,6 @@ export function restoreMemoQueries(queryClient: QueryClient, snapshot: MemoCache
 export function invalidateMemoQueries(queryClient: QueryClient) {
   void queryClient.invalidateQueries({ queryKey: ['memos'] });
   void queryClient.invalidateQueries({ queryKey: ['trash'] });
-  void queryClient.invalidateQueries({ queryKey: ['memo'] });
 }
 
 export function findCachedMemo(queryClient: QueryClient, id: string): Memo | undefined {
@@ -43,11 +41,19 @@ export function findCachedMemo(queryClient: QueryClient, id: string): Memo | und
 
 export function upsertMemoCaches(queryClient: QueryClient, memo: Memo) {
   queryClient.setQueryData(['memo', memo.id], memo);
+  const lists = queryClient.getQueriesData<Memo[]>({ queryKey: ['memos'] });
+  if (lists.length === 0) {
+    queryClient.setQueryData<Memo[]>(['memos', { sortBy: 'createdAt', q: '' }], memo.deletedAt ? [] : [memo]);
+    queryClient.setQueryData<Memo[]>(['memos', { sortBy: 'updatedAt', q: '' }], memo.deletedAt ? [] : [memo]);
+  }
   queryClient.setQueriesData<Memo[]>({ queryKey: ['memos'] }, (current) => {
-    if (!current) return current;
-    const without = current.filter((item) => item.id !== memo.id);
-    if (memo.deletedAt) return without;
-    return [memo, ...without];
+    const list = current ?? [];
+    const index = list.findIndex((item) => item.id === memo.id);
+    if (memo.deletedAt) return list.filter((item) => item.id !== memo.id);
+    if (index === -1) return [memo, ...list];
+    const next = list.slice();
+    next[index] = memo;
+    return next;
   });
   queryClient.setQueryData<Memo[]>(['trash'], (current) => {
     if (!current) return current;

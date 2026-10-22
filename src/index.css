@@ -61,6 +61,10 @@ body::before { content: ""; pointer-events: none; position: fixed; inset: 0; z-i
 .time-wheel { scrollbar-width: none; }
 .time-wheel::-webkit-scrollbar { display: none; }
 
+/* 에디터 입력 영역 */
+.memo-editor { margin-top: 1rem; padding: 1.25rem 1.5rem; min-height: 16rem; border: 1px solid var(--color-line); border-radius: 0.75rem; background: var(--color-paper); }
+.memo-editor:focus, .memo-editor:focus-visible { outline: none; border-color: var(--color-line-strong); box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-line-strong) 55%, transparent); }
+
 /* 에디터 마크 */
 .memo-editor p { margin: 0.4em 0; }
 .memo-editor p:first-child { margin-top: 0; }
@@ -76,6 +80,10 @@ body::before { content: ""; pointer-events: none; position: fixed; inset: 0; z-i
 .memo-editor [data-letter-spacing="wide"] { letter-spacing: 0.12em; }
 .memo-editor [data-line-height="tight"] { line-height: 1.25; }
 .memo-editor [data-line-height="wide"] { line-height: 2.1; }
+.memo-editor .memo-image { position: relative; display: inline-block; max-width: 100%; }
+.memo-editor .memo-image img { display: block; max-width: 100%; height: auto; }
+.memo-editor .memo-image.is-selected img { outline: 2px solid var(--color-accent); }
+.memo-editor .memo-image-handle { position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize; border: 2px solid var(--color-ink); background: var(--color-paper); }
 
 /* 모션 축소 */
 @media (prefers-reduced-motion: reduce) {

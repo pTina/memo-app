@@ -75,6 +75,10 @@ function updateMemosNow(updater: (memos: Memo[]) => Memo[]) {
   writeMemos(updater(readMemos()));
 }
 
+export function deleteFontBlob(id: string) {
+  return del(id, fontStore);
+}
+
 export function readSettingsSync(): Settings {
   if (typeof localStorage === 'undefined') return defaultSettings;
   const parsed = readJson(storageKeys.settings);
@@ -131,7 +135,7 @@ export const localAdapter: StorageAdapter = {
 
   deleteFont(id) {
     return enqueue(async () => {
-      await del(id, fontStore);
+      await deleteFontBlob(id);
       updateMemosNow((memos) => memos.map((memo) => (
         memo.fontId === id ? { ...memo, fontId: null } : memo
       )));

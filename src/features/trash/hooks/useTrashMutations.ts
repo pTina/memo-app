@@ -27,13 +27,13 @@ export function useTrashMutations() {
   });
 
   const remove = useMutation({
-    mutationFn: (id: string) => memoApi.remove([id]),
-    onMutate: async (id) => {
+    mutationFn: (ids: string[]) => memoApi.remove(ids),
+    onMutate: async (ids) => {
       const snapshot = await pauseMemoQueries(queryClient);
-      removeMemoCaches(queryClient, [id]);
+      removeMemoCaches(queryClient, ids);
       return snapshot;
     },
-    onError: (_error, _id, snapshot) => {
+    onError: (_error, _ids, snapshot) => {
       if (snapshot) restoreMemoQueries(queryClient, snapshot);
     },
     onSettled: () => invalidateMemoQueries(queryClient),

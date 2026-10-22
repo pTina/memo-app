@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { SecretCancelledError } from '@/features/security/utils/secretGate';
 import type { Memo } from '@/shared/types';
 import { memoApi } from '../api/memoApi';
 import {
@@ -15,14 +16,23 @@ export function useMemoMutations() {
   const save = useMutation({
     mutationFn: (memo: Memo) => memoApi.save(memo),
     onMutate: async (memo) => {
-      const snapshot = await pauseMemoQueries(queryClient);
       upsertMemoCaches(queryClient, memo);
-      return snapshot;
     },
-    onError: (_error, _memo, snapshot) => {
-      if (snapshot) restoreMemoQueries(queryClient, snapshot);
+    onError: (error, memo, snapshot) => {
+      if (error instanceof SecretCancelledError) {
+        if (snapshot) restoreMemoQueries(queryClient, snapshot);
+        return;
+      }
+      upsertMemoCaches(queryClient, memo);
     },
-    onSettled: () => invalidateMemoQueries(queryClient),
+    onSuccess: (saved) => {
+      upsertMemoCaches(queryClient, saved);
+    },
+    onSettled: (_data, error) => {
+      if (error instanceof SecretCancelledError) return;
+      if (error) return;
+      void queryClient.invalidateQueries({ queryKey: ['trash'] });
+    },
   });
 
   const softDelete = useMutation({
