@@ -1,3 +1,5 @@
+import { copyFileSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -29,6 +31,18 @@ function cspPlugin(): Plugin {
   };
 }
 
+function githubPagesSpa(): Plugin {
+  return {
+    name: 'github-pages-spa',
+    apply: 'build',
+    closeBundle() {
+      const outDir = resolve(process.cwd(), 'dist');
+      copyFileSync(resolve(outDir, 'index.html'), resolve(outDir, '404.html'));
+      writeFileSync(resolve(outDir, '.nojekyll'), '');
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   if (mode === 'production' && env.VITE_AUTH_BYPASS === 'true') {
@@ -45,7 +59,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     base: mode === 'production' ? '/memo-app/' : '/',
-    plugins: [react(), tailwindcss(), svgr(), cspPlugin()],
+    plugins: [react(), tailwindcss(), svgr(), cspPlugin(), githubPagesSpa()],
     server: { headers: coop },
     preview: { headers: coop },
     resolve: {

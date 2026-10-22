@@ -8,6 +8,7 @@
     "dev:admin": "node scripts/dev-admin.mjs",
     "emulators": "firebase emulators:start --only auth,firestore --project demo-memo-app",
     "build": "tsc --noEmit && vite build",
+    "deploy:pages": "node scripts/deploy-pages.mjs",
     "preview": "vite preview",
     "prepare": "husky"
   },
