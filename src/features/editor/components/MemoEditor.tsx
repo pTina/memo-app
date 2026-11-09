@@ -171,12 +171,22 @@ export function MemoEditor({ memo, dateWithTime, onDeleted }: MemoEditorProps) {
   }
 
   useEffect(() => {
+    if (memo.updatedAt < memoRef.current.updatedAt) return;
     setFontId(memo.fontId);
     memoRef.current = { ...memoRef.current, fontId: memo.fontId };
-  }, [memo.fontId]);
+  }, [memo.fontId, memo.updatedAt]);
 
-  useEffect(() => () => {
-    flush();
+  useEffect(() => {
+    function onHide() {
+      flush();
+    }
+    window.addEventListener('pagehide', onHide);
+    document.addEventListener('visibilitychange', onHide);
+    return () => {
+      window.removeEventListener('pagehide', onHide);
+      document.removeEventListener('visibilitychange', onHide);
+      flush();
+    };
   }, []);
 
   useEffect(() => {
@@ -204,11 +214,8 @@ export function MemoEditor({ memo, dateWithTime, onDeleted }: MemoEditorProps) {
 
   function onFontChange(nextId: string | null) {
     setFontId(nextId);
-    queueSave(currentMemo({
-      fontId: nextId,
-      content: editor?.getJSON() ?? memoRef.current.content,
-      plainText: editor?.getText() ?? memoRef.current.plainText,
-    }));
+    memoRef.current = { ...memoRef.current, fontId: nextId };
+    persistNow();
   }
 
   function onTitle(value: string) {

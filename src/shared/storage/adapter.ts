@@ -1,9 +1,10 @@
-import type { FontFile, Memo, Settings } from '@/shared/types';
+import type { FontFile, Memo, MemoSummary, Settings } from '@/shared/types';
 
 export type StorageAdapter = {
-  listMemos(): Promise<Memo[]>;
+  listMemos(): Promise<MemoSummary[]>;
   getMemo(id: string): Promise<Memo | null>;
   saveMemo(memo: Memo): Promise<void>;
+  patchMemo(id: string, patch: Partial<Pick<MemoSummary, 'deletedAt' | 'updatedAt' | 'fontId'>>): Promise<void>;
   removeMemos(ids: string[]): Promise<void>;
   listFonts(): Promise<FontFile[]>;
   saveFont(font: FontFile): Promise<void>;

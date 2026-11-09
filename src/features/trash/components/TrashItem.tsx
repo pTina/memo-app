@@ -1,14 +1,14 @@
 import { daysUntilPurge } from '@/features/trash/utils/purgeExpired';
 import { formatMemoDate } from '@/shared/lib/dateUtils';
 import { DeleteIcon, RestoreIcon } from '@/shared/ui/icons';
-import type { Memo } from '@/shared/types';
+import type { MemoSummary } from '@/shared/types';
 
 type TrashItemProps = {
-  memo: Memo;
+  memo: MemoSummary;
   selected?: boolean;
   onToggle?: (id: string) => void;
   onRestore: (id: string) => void;
-  onDelete: (memo: Memo) => void;
+  onDelete: (memo: MemoSummary) => void;
 };
 
 export function TrashItem({ memo, selected = false, onToggle, onRestore, onDelete }: TrashItemProps) {

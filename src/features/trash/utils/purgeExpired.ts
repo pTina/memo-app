@@ -1,4 +1,4 @@
-import type { Memo } from '@/shared/types';
+import type { MemoSummary } from '@/shared/types';
 
 export const TRASH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -10,7 +10,7 @@ export function daysUntilPurge(deletedAt: string, now = Date.now()): number {
   return Math.ceil(remain / (24 * 60 * 60 * 1000));
 }
 
-export function purgeExpired(memos: Memo[], now = Date.now()): { keep: Memo[]; removedIds: string[] } {
+export function purgeExpired<T extends MemoSummary>(memos: T[], now = Date.now()): { keep: T[]; removedIds: string[] } {
   const removedIds: string[] = [];
   const keep = memos.filter((memo) => {
     if (!memo.deletedAt) return true;

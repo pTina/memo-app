@@ -1,7 +1,7 @@
 import Select from 'react-select';
 import type { FontFile } from '@/shared/types';
 import { PlusIcon } from '@/shared/ui/icons';
-import { fontFamilyName, isFontReady, useFontReadyTick } from '../hooks/useFontFace';
+import { fontFamilyName, useFontReadyTick } from '../hooks/useFontFace';
 
 type FontOption = {
   value: string;
@@ -18,7 +18,7 @@ type FontSelectProps = {
 };
 
 function optionStyle(fontId: string | null) {
-  if (fontId && isFontReady(fontId)) return { fontFamily: `"${fontFamilyName(fontId)}", var(--font-sans)` };
+  if (fontId) return { fontFamily: `"${fontFamilyName(fontId)}", var(--font-sans)` };
   return { fontFamily: 'var(--font-sans)' };
 }
 
@@ -28,7 +28,8 @@ export function FontSelect({ fonts, value, onChange, onManage, inputId = 'memo-f
     { value: '', label: '기본 서체', fontId: null },
     ...fonts.map((font) => ({ value: font.id, label: font.name, fontId: font.id })),
   ];
-  const selected = options.find((option) => option.value === (value ?? '')) ?? options[0];
+  const selected = options.find((option) => option.value === (value ?? ''))
+    ?? (value ? { value, label: '선택한 서체', fontId: value } : options[0]);
 
   return (
     <div className="flex min-w-0 flex-1 items-center gap-1">

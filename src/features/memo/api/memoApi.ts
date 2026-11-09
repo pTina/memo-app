@@ -1,11 +1,11 @@
 import { purgeExpired } from '@/features/trash/utils/purgeExpired';
 import { storage } from '@/shared/storage';
-import type { Memo, SortBy } from '@/shared/types';
+import type { Memo, MemoSummary, SortBy } from '@/shared/types';
 import { activeMemos, searchMemos } from '../utils/searchMemos';
 import { sortMemos } from '../utils/sortMemos';
 
 export const memoApi = {
-  async listActive(sortBy: SortBy, query: string): Promise<Memo[]> {
+  async listActive(sortBy: SortBy, query: string): Promise<MemoSummary[]> {
     const memos = await storage.listMemos();
     return searchMemos(sortMemos(activeMemos(memos), sortBy), query);
   },
@@ -16,40 +16,32 @@ export const memoApi = {
 
   async save(memo: Memo): Promise<Memo> {
     await storage.saveMemo(memo);
-    return (await storage.getMemo(memo.id)) ?? memo;
+    const stored = await storage.getMemo(memo.id);
+    if (stored && stored.updatedAt >= memo.updatedAt) return stored;
+    return memo;
   },
 
-  async softDelete(id: string): Promise<Memo | null> {
-    const memo = await storage.getMemo(id);
-    if (!memo || memo.deletedAt) return memo;
-    const next = { ...memo, deletedAt: new Date().toISOString() };
-    await storage.saveMemo(next);
-    return next;
-  },
-
-  async softDeleteMany(ids: string[]): Promise<Memo[]> {
-    const idSet = new Set(ids);
+  async softDelete(id: string): Promise<string> {
     const now = new Date().toISOString();
-    const memos = await storage.listMemos();
-    const next = memos.filter((memo) => idSet.has(memo.id) && memo.deletedAt == null)
-      .map((memo) => ({ ...memo, deletedAt: now }));
-    await Promise.all(next.map((memo) => storage.saveMemo(memo)));
-    return next;
+    await storage.patchMemo(id, { deletedAt: now, updatedAt: now });
+    return now;
   },
 
-  async listTrash(): Promise<Memo[]> {
+  async softDeleteMany(ids: string[]): Promise<string> {
+    const now = new Date().toISOString();
+    await Promise.all(ids.map((id) => storage.patchMemo(id, { deletedAt: now, updatedAt: now })));
+    return now;
+  },
+
+  async listTrash(): Promise<MemoSummary[]> {
     const memos = await storage.listMemos();
     return memos
       .filter((memo) => memo.deletedAt != null)
       .sort((a, b) => (a.deletedAt! < b.deletedAt! ? 1 : a.deletedAt! > b.deletedAt! ? -1 : 0));
   },
 
-  async restore(id: string): Promise<Memo | null> {
-    const memo = await storage.getMemo(id);
-    if (!memo) return null;
-    const next = { ...memo, deletedAt: null };
-    await storage.saveMemo(next);
-    return next;
+  async restore(id: string): Promise<void> {
+    await storage.patchMemo(id, { deletedAt: null, updatedAt: new Date().toISOString() });
   },
 
   remove(ids: string[]): Promise<void> {

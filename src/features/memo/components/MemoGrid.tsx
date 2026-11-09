@@ -1,9 +1,9 @@
-import { fontFamilyName, isFontReady, useFontReadyTick } from '@/features/font/hooks/useFontFace';
-import type { Memo } from '@/shared/types';
+import { fontFamilyName, useFontReadyTick } from '@/features/font/hooks/useFontFace';
+import type { MemoSummary } from '@/shared/types';
 import { MemoCard } from './MemoCard';
 
 type MemoGridProps = {
-  memos: Memo[];
+  memos: MemoSummary[];
   selectedIds: string[];
   onToggle: (id: string) => void;
   onTrash: (id: string) => void;
@@ -21,7 +21,7 @@ export function MemoGrid({ memos, selectedIds, onToggle, onTrash }: MemoGridProp
           key={memo.id}
           memo={memo}
           selected={selectedIds.includes(memo.id)}
-          fontFamily={memo.fontId && isFontReady(memo.fontId) ? fontFamilyName(memo.fontId) : undefined}
+          fontFamily={memo.fontId ? fontFamilyName(memo.fontId) : undefined}
           onToggle={onToggle}
           onTrash={onTrash}
         />

@@ -1,5 +1,6 @@
 import { createStore, del, entries, set } from 'idb-keyval';
 import type { FontFile, Memo, Settings } from '@/shared/types';
+import { toMemoSummary } from '@/shared/types';
 import { defaultSettings } from '@/shared/types';
 import type { StorageAdapter } from './adapter';
 import { FONT_DB_NAME, FONT_STORE_NAME, STORAGE_VERSION, storageKeys } from './keys';
@@ -93,7 +94,7 @@ function writeSettings(settings: Settings) {
 
 export const localAdapter: StorageAdapter = {
   listMemos() {
-    return enqueue(() => readMemos());
+    return enqueue(() => readMemos().map(toMemoSummary));
   },
 
   getMemo(id) {
@@ -109,6 +110,14 @@ export const localAdapter: StorageAdapter = {
         next[index] = memo;
         return next;
       });
+    });
+  },
+
+  patchMemo(id, patch) {
+    return enqueue(() => {
+      updateMemosNow((memos) => memos.map((memo) => (
+        memo.id === id ? { ...memo, ...patch } : memo
+      )));
     });
   },
 

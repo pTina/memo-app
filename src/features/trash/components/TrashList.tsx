@@ -1,12 +1,12 @@
-import type { Memo } from '@/shared/types';
+import type { MemoSummary } from '@/shared/types';
 import { TrashItem } from './TrashItem';
 
 type TrashListProps = {
-  memos: Memo[];
+  memos: MemoSummary[];
   selectedIds: string[];
   onToggle: (id: string) => void;
   onRestore: (id: string) => void;
-  onDelete: (memo: Memo) => void;
+  onDelete: (memo: MemoSummary) => void;
 };
 
 export function TrashList({ memos, selectedIds, onToggle, onRestore, onDelete }: TrashListProps) {

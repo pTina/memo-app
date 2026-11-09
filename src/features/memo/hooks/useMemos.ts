@@ -8,6 +8,5 @@ export function useMemos(sortBy: SortBy, query: string) {
     queryFn: () => memoApi.listActive(sortBy, query),
     retry: 0,
     staleTime: 30_000,
-    placeholderData: (previous) => previous,
   });
 }

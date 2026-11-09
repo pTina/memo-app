@@ -7,13 +7,13 @@ import { useTrashMutations } from '@/features/trash/hooks/useTrashMutations';
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog';
 import { SelectAllCheckbox } from '@/shared/ui/SelectAllCheckbox';
 import { BackIcon, DeleteIcon } from '@/shared/ui/icons';
-import type { Memo } from '@/shared/types';
+import type { MemoSummary } from '@/shared/types';
 
 export function TrashPage() {
   const trashQuery = useTrash();
   const { restore, remove, empty } = useTrashMutations();
   const [emptyOpen, setEmptyOpen] = useState(false);
-  const [pendingDelete, setPendingDelete] = useState<Memo[] | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<MemoSummary[] | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const memos = trashQuery.data ?? [];
   const visible = new Set(memos.map((memo) => memo.id));

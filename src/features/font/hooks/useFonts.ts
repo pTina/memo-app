@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { invalidateMemoQueries } from '@/features/memo/hooks/memoCache';
-import type { FontFile, Memo, Settings } from '@/shared/types';
+import type { FontFile, Memo, MemoSummary, Settings } from '@/shared/types';
 import { fontApi } from '../api/fontApi';
 
 export function useFonts() {
@@ -45,7 +45,7 @@ export function useFontMutations() {
     mutationFn: (id: string) => fontApi.remove(id),
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ['fonts'] });
-      queryClient.setQueriesData<Memo[]>({ queryKey: ['memos'] }, (current) => (
+      queryClient.setQueriesData<MemoSummary[]>({ queryKey: ['memos'] }, (current) => (
         current?.map((memo) => (memo.fontId === id ? { ...memo, fontId: null } : memo))
       ));
       queryClient.setQueriesData<Memo | null>({ queryKey: ['memo'] }, (current) => (

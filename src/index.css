@@ -62,7 +62,7 @@ body::before { content: ""; pointer-events: none; position: fixed; inset: 0; z-i
 .time-wheel::-webkit-scrollbar { display: none; }
 
 /* 에디터 입력 영역 */
-.memo-editor { margin-top: 1rem; padding: 1.25rem 1.5rem; min-height: 16rem; border: 1px solid var(--color-line); border-radius: 0.75rem; background: var(--color-paper); }
+.memo-editor { margin-top: 1rem; padding: 1.25rem 1.5rem; min-height: 16rem; border: 1px solid var(--color-line); border-radius: 0.75rem; background: var(--color-paper); font-family: inherit; }
 .memo-editor:focus, .memo-editor:focus-visible { outline: none; border-color: var(--color-line-strong); box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-line-strong) 55%, transparent); }
 
 /* 에디터 마크 */

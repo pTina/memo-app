@@ -1,10 +1,10 @@
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Link } from 'react-router';
 import { formatMemoDate } from '@/shared/lib/dateUtils';
-import type { Memo } from '@/shared/types';
+import type { MemoSummary } from '@/shared/types';
 
 type MemoCardProps = {
-  memo: Memo;
+  memo: MemoSummary;
   selected: boolean;
   fontFamily?: string;
   onToggle: (id: string) => void;

@@ -1,6 +1,6 @@
-import type { Memo } from '@/shared/types';
+import type { MemoSummary } from '@/shared/types';
 
-export function searchMemos(memos: Memo[], query: string): Memo[] {
+export function searchMemos<T extends MemoSummary>(memos: T[], query: string): T[] {
   const needle = query.trim().toLowerCase();
   if (!needle) return memos;
   return memos.filter((memo) => (
@@ -8,6 +8,6 @@ export function searchMemos(memos: Memo[], query: string): Memo[] {
   ));
 }
 
-export function activeMemos(memos: Memo[]): Memo[] {
+export function activeMemos<T extends MemoSummary>(memos: T[]): T[] {
   return memos.filter((memo) => memo.deletedAt == null);
 }

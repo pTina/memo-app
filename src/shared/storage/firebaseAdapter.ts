@@ -1,7 +1,8 @@
-import { deleteDoc, doc, getDoc, getDocs, collection, setDoc, updateDoc } from 'firebase/firestore';
+import { deleteDoc, deleteField, doc, getDoc, getDocs, collection, setDoc, updateDoc } from 'firebase/firestore';
 import { gateSecrets } from '@/features/security/utils/secretGate';
-import type { FontFile, Memo, Settings } from '@/shared/types';
-import { defaultSettings } from '@/shared/types';
+import type { JSONContent } from '@tiptap/core';
+import type { FontFile, MemoSummary, Settings } from '@/shared/types';
+import { defaultSettings, toMemoSummary } from '@/shared/types';
 import { getFirebaseAuth, getFirebaseDb } from '../lib/firebase';
 import type { StorageAdapter } from './adapter';
 import { deleteFontRemote, downloadFontBlob, uploadFontBlob, usesFontWorker } from './fontWorker';
@@ -68,17 +69,28 @@ function fontMeta(font: FontFile) {
   };
 }
 
-function isMemo(value: unknown): value is Memo {
+function isMemoSummary(value: unknown): value is MemoSummary {
   if (!value || typeof value !== 'object') return false;
-  const row = value as Memo;
+  const row = value as MemoSummary;
   return typeof row.id === 'string'
     && typeof row.title === 'string'
     && typeof row.plainText === 'string'
     && (row.fontId === null || typeof row.fontId === 'string')
     && typeof row.createdAt === 'string'
     && typeof row.updatedAt === 'string'
-    && (row.deletedAt === null || typeof row.deletedAt === 'string')
-    && !!row.content && typeof row.content === 'object';
+    && (row.deletedAt === null || typeof row.deletedAt === 'string');
+}
+
+function emptyDoc(): JSONContent {
+  return { type: 'doc', content: [] };
+}
+
+function memoRef(userId: string, id: string) {
+  return doc(getFirebaseDb(), 'users', userId, 'memos', id);
+}
+
+function bodyRef(userId: string, id: string) {
+  return doc(getFirebaseDb(), 'users', userId, 'memos', id, 'body', 'current');
 }
 
 async function readSettings(userId: string): Promise<Settings> {
@@ -88,37 +100,70 @@ async function readSettings(userId: string): Promise<Settings> {
 }
 
 export const firebaseAdapter: StorageAdapter = {
-  async listMemos() {
-    const snap = await withTimeout(getDocs(collection(getFirebaseDb(), 'users', uid(), 'memos')));
-    return snap.docs.map((row) => row.data()).filter(isMemo);
+  listMemos() {
+    return enqueue(async () => {
+      const snap = await withTimeout(getDocs(collection(getFirebaseDb(), 'users', uid(), 'memos')));
+      return snap.docs.map((row) => ({ id: row.id, ...row.data() })).filter(isMemoSummary).map(toMemoSummary);
+    });
   },
 
-  async getMemo(id) {
-    try {
-      const snap = await withTimeout(getDoc(doc(getFirebaseDb(), 'users', uid(), 'memos', id)));
-      const data = snap.data();
-      return isMemo(data) ? data : null;
-    } catch {
-      return null;
-    }
+  getMemo(id) {
+    return enqueue(async () => {
+      try {
+        const userId = uid();
+        const snap = await withTimeout(getDoc(memoRef(userId, id)));
+        if (!snap.exists()) return null;
+        const data = { id: snap.id, ...snap.data() };
+        if (!isMemoSummary(data)) return null;
+        const legacy = data as MemoSummary & { content?: unknown };
+        let content = legacy.content && typeof legacy.content === 'object'
+          ? legacy.content as JSONContent
+          : emptyDoc();
+        try {
+          const bodySnap = await withTimeout(getDoc(bodyRef(userId, id)));
+          const body = bodySnap.data();
+          if (body && typeof body.content === 'object' && body.content) {
+            content = body.content as JSONContent;
+          }
+        } catch {
+          // 본문 하위 문서가 없거나 규칙이 아직 없으면 목록 문서의 기존 content를 사용합니다.
+        }
+        return { ...toMemoSummary(data), content };
+      } catch {
+        return null;
+      }
+    });
   },
 
   saveMemo(memo) {
     return enqueue(async () => {
       const userId = uid();
-      const snap = await getDoc(doc(getFirebaseDb(), 'users', userId, 'memos', memo.id));
+      const snap = await getDoc(memoRef(userId, memo.id));
       const existing = snap.data();
-      const unchanged = isMemo(existing) && existing.title === memo.title && existing.plainText === memo.plainText;
+      const unchanged = isMemoSummary(existing) && existing.title === memo.title && existing.plainText === memo.plainText;
       const settings = await readSettings(userId);
       const next = unchanged ? memo : await gateSecrets(memo, settings.secretCheck);
-      await setDoc(doc(getFirebaseDb(), 'users', userId, 'memos', next.id), next);
+      const summary = toMemoSummary(next);
+      try {
+        await setDoc(memoRef(userId, next.id), { ...summary, content: deleteField() });
+        await setDoc(bodyRef(userId, next.id), { content: next.content });
+      } catch {
+        await setDoc(memoRef(userId, next.id), { ...summary, content: next.content });
+      }
     });
+  },
+
+  patchMemo(id, patch) {
+    return enqueue(() => updateDoc(memoRef(uid(), id), patch));
   },
 
   removeMemos(ids) {
     return enqueue(async () => {
       const userId = uid();
-      await Promise.all(ids.map((id) => deleteDoc(doc(getFirebaseDb(), 'users', userId, 'memos', id))));
+      await Promise.all(ids.flatMap((id) => [
+        deleteDoc(bodyRef(userId, id)),
+        deleteDoc(memoRef(userId, id)),
+      ]));
     });
   },
 

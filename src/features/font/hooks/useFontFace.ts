@@ -71,23 +71,9 @@ export function useFontFace(fonts: FontFile[] | undefined) {
 }
 
 export function useReadyFontFamily(fontId: string | null) {
-  const [displayedId, setDisplayedId] = useState<string | null>(() => (
-    fontId && isFontReady(fontId) ? fontId : null
-  ));
-
-  useEffect(() => {
-    if (!fontId) {
-      setDisplayedId(null);
-      return undefined;
-    }
-    function applyIfReady() {
-      if (fontId && isFontReady(fontId)) setDisplayedId(fontId);
-    }
-    applyIfReady();
-    return subscribeFontReady(applyIfReady);
-  }, [fontId]);
-
-  return displayedId ? `"${fontFamilyName(displayedId)}", var(--font-sans)` : undefined;
+  useFontReadyTick();
+  if (!fontId) return undefined;
+  return `"${fontFamilyName(fontId)}", var(--font-sans)`;
 }
 
 export function useFontReadyTick() {
